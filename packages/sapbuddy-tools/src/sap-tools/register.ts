@@ -105,7 +105,7 @@ export function handleUserMessage(text: string): void {
 
 /** 只读模式开关：connections.json 的 security.readOnly 未明确为 false 即只读
  * （与网页端默认显示"已锁定"一致：没写该项 = 只读保护开启） */
-function isReadOnly(): boolean {
+export function isReadOnly(): boolean {
   try {
     const cfg = JSON.parse(readFileSync(join(homedir(), ".SapBuddy", "connections.json"), "utf8").toString())
     return cfg.security?.readOnly !== false
