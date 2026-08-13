@@ -39,6 +39,8 @@ sapbuddy-dsh/
 
 ```bash
 pnpm install --store-dir /tmp/pnpm-store   # 沙箱内需本地 store；正常环境直接 pnpm install
+# dev 依赖解析：@deepseek-ai/dsh-tools / @deepseek-ai/cordis 取自本地 DSH 安装（npm 版本过旧）
+#   （node_modules 中为 symlink，不入库；npm 发布正确版本后改为普通 devDependency）
 pnpm -r build
 pnpm -r test
 ```

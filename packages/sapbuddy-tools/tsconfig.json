@@ -11,5 +11,5 @@
     "declaration": false,
     "types": ["node"]
   },
-  "include": ["src/sap-tools/**/*"]
+  "include": ["src/**/*"]
 }
