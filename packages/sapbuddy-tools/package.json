@@ -1,6 +1,6 @@
 {
   "name": "sapbuddy-tools",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "SapBuddy 41 个 SAP 工具 —— DeepSeek Harness 工具插件（DSH 底座版，替代 pi-coding-agent）",
   "type": "module",
   "main": "dist/index.js",

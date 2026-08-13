@@ -6,3 +6,6 @@ dist/
 .upstream-tmp/
 .env
 .DS_Store
+
+# 会话产物（DSH 工作区 output）
+/output/

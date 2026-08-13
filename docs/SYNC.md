@@ -9,8 +9,11 @@ vendored 的副本。**上游仓库是 41 个 SAP 工具实现的 canonical 源*
   `taskTransport.ts`、`auditLog.ts`、`banner.ts`。
 - **不同步** pi 适配文件：`pi-extension.ts`、`mcp-register.mjs`（本仓库以 DSH 注册层/配置替代）。
 - `register.ts` 是特例：逻辑同源，但头部已去掉 pi 类型导入（`ExtensionAPI = any` 占位），
-  阶段 2/3 将把 pi 耦合部分（`installWriteGate`/`registerSapTools`）替换为
-  `ctx.tools.register` + `guard` + `tools/pre-execute` 实现。
+  pi 耦合部分（`installWriteGate`/`registerSapTools`）保留为遗留代码；
+  DSH 实际生效的实现位于 `gate.ts`（写门禁 + 配置目录保护）。
+- **配置路径已收口**：工具层一律经 `sapbuddy-home.ts` 解析配置根
+  （默认 `~/.dsh/.agent-presets/sapbuddy`），不再读写 `~/.SapBuddy`；
+  上游若改动了路径逻辑，同步时需对齐到 `sapbuddyHome()`。
 - 本仓库对同步文件的改动应尽量少：能回推上游的修复（bug fix / 新工具）请先提交到上游。
 
 ## 手动同步步骤

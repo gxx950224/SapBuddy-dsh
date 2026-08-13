@@ -18,12 +18,13 @@ import os from "node:os"
 import path from "node:path"
 
 const GLOBAL_MCP = path.join(os.homedir(), ".SapBuddy", "mcp.json")
+const PRESET_MCP = path.join(os.homedir(), ".dsh", ".agent-presets", "sapbuddy", "mcp.json")
 const PROJECT_MCP = path.join(process.cwd(), "mcp.json")
 const HOME_PATCH = path.join(os.homedir(), ".dsh", "cordis.patch.yml")
 
-/** 读 mcp.json：项目优先，其次全局（与 SapBuddy 同规则） */
+/** 读 mcp.json：项目 → preset 目录 → 旧全局（配置收口于 preset 目录） */
 export function loadMcpServers() {
-  for (const f of [PROJECT_MCP, GLOBAL_MCP]) {
+  for (const f of [PROJECT_MCP, PRESET_MCP, GLOBAL_MCP]) {
     try {
       const j = JSON.parse(fs.readFileSync(f, "utf8"))
       if (j && j.mcpServers && typeof j.mcpServers === "object") return { source: f, servers: j.mcpServers }

@@ -7,7 +7,7 @@
  */
 import { readFileSync, existsSync } from "node:fs"
 import { resolve } from "node:path"
-import { homedir } from "node:os"
+import { sapbuddyPath } from "./sapbuddy-home.js"
 
 export interface ConnectionConfig {
   /** 连接 ID，工具调用时用 connectionId 指定，如 "dev" */
@@ -80,11 +80,10 @@ function expandEnv(value: string): string {
 
 function resolveConfigPath(): string {
   if (process.env.ABAP_MCP_CONFIG) return resolve(process.env.ABAP_MCP_CONFIG)
-  const home = resolve(homedir(), ".SapBuddy", "connections.json")
-  if (existsSync(home)) return home // 固定主目录配置
-  const user = resolve(process.cwd(), ".SapBuddy", "connections.json")
-  if (existsSync(user)) return user // 兼容旧版：运行目录配置
-  return resolve(process.cwd(), "connections.json") // 兼容旧版：项目根配置
+  // 自包含：配置文件位于 DSH preset 目录（~/.dsh/.agent-presets/sapbuddy/）
+  const home = resolve(sapbuddyPath("connections.json"))
+  if (existsSync(home)) return home
+  return home // 缺失时返回该路径，loadConfig 给出明确报错
 }
 
 export function loadConfig(): ServerConfig {

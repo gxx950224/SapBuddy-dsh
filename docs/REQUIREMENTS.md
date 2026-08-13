@@ -45,7 +45,14 @@
 8. 全部单测通过；安装器幂等可重复
 
 ## 遗留（P2 可选）
+- 配置收口后的**自身源码保护 / 产物路径规则**移植为 DSH fs guard（pi 版遗留逻辑已测试跳过）
 - 旧会话迁移 scripts/migrate-sessions.mjs
-- HTML 审查报告升级 DSH deliverables
+- HTML 审查报告升级 DSH deliverables（当前产物写入 DSH 工作区）
 - 动态 MCP 注册插件
 - 升级器（版本配套检查、合并式升级不覆盖用户修改）
+
+## 配置收口（2026-08 补充决策 D5）
+SapBuddy 的一切配置自包含于 preset 目录（`~/.dsh/.agent-presets/sapbuddy/`）：
+connections.json / settings.json / mcp.json / logs / output / uploads，随 preset 一起分发。
+工具层经 `sapbuddy-home.ts`（`SAPBUDDY_HOME` 可覆盖）解析；旧 `~/.SapBuddy` 仅由安装器一次性迁移。
+敏感配置目录由 `gate.ts` 的 `configPathViolation` guard 保护（bash/读/写工具拦截）。

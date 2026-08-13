@@ -13,6 +13,79 @@
  */
 import { isWriteTool, isWriteApproved, handleUserMessage, isReadOnly, namespaceViolation } from "./register.js"
 import { isConnectionDirty } from "./adtManager.js"
+import { sapbuddyHome, sapbuddyPath } from "./sapbuddy-home.js"
+
+/** 敏感配置文件清单（禁止 AI 读写；位置无关） */
+const PROTECTED_CONFIG = ["connections.json", "auth.json", "settings.json", "models.json", "models-store.json", "mcp.json"]
+const READ_TOOLS = new Set(["read", "glob", "grep", "find", "ls"])
+const WRITE_TOOLS = new Set(["write", "edit"])
+/** 配置目录内允许 AI 触碰的子树 */
+const ALLOWED_SUBTREES = ["output", "skills", "sessions", "prompts", "uploads"]
+
+function norm(s: string): string {
+  return String(s ?? "").toLowerCase().replace(/\\/g, "/")
+}
+
+/**
+ * 配置目录保护（移植自 pi 版 installWriteGate 的敏感配置拦截）：
+ * - bash 命令：涉及配置目录/敏感文件名的命令拦截（仅放行打开产物、读上传文件，且禁穿越/禁敏感文件名）
+ * - 读工具（read/glob/grep/find/ls）：path 落在配置目录（output/skills/sessions/prompts/uploads 子树除外）拦截
+ * - 写工具（write/edit）：敏感配置文件名任意位置拦截
+ * 返回拒绝原因；undefined = 放行。
+ */
+export function configPathViolation(name: string, input: unknown): string | undefined {
+  const o = (input ?? {}) as Record<string, unknown>
+  const p = String(o.path ?? o.file ?? o.filePath ?? o.pattern ?? "")
+  const lower = norm(p)
+  const home = norm(sapbuddyHome()).replace(/\/+$/, "")
+  const inHome = home.length > 0 && lower.includes(home)
+  const refsProtected = PROTECTED_CONFIG.some((f) => lower.includes(f))
+
+  if (name === "bash") {
+    const cmd = norm(String(o.command ?? ""))
+    if (!cmd.includes(home) && !PROTECTED_CONFIG.some((f) => cmd.includes(f))) return undefined
+    // bash 的敏感文件名检查作用于 command（path 字段为空）
+    const cmdRefsProtected = PROTECTED_CONFIG.some((f) => cmd.includes(f))
+    // 白名单：打开产物（start/explorer/open + <home>/output/）或读上传文件（<home>/uploads/ 子树）
+    const isOpenArtifact = /^(start|explorer|open)(\s|$)/.test(cmd) && cmd.includes(`${home}/output/`)
+    let uploadsOnly = cmd.includes(home)
+    if (uploadsOnly) {
+      let idx = cmd.indexOf(home)
+      while (idx >= 0) {
+        const tail = cmd.slice(idx + home.length).replace(/^[/\\]+/, "")
+        if (!/^uploads([/\\]|[\s;&|]|$)/.test(tail)) { uploadsOnly = false; break }
+        idx = cmd.indexOf(home, idx + 1)
+      }
+    }
+    const traversal = cmd.includes("..")
+    const allowed = (isOpenArtifact || uploadsOnly) && !traversal && !cmdRefsProtected
+    if (!allowed) {
+      return `⛔ 命令行操作被安全拦截（涉及敏感配置）：${String(o.command ?? "").slice(0, 120)}\n安全配置（连接凭据 / API 密钥 / 模型 / MCP）仅限你本人手动查看配置目录。`
+    }
+    return undefined
+  }
+
+  // 目录级拦截：path 落在配置目录（白名单子树除外）
+  if (READ_TOOLS.has(name) && inHome) {
+    const rest = lower.slice(lower.indexOf(home) + home.length).replace(/^[/\\]+/, "")
+    const allowed = ALLOWED_SUBTREES.some((s) => rest === s || rest.startsWith(s + "/"))
+    if (!allowed) {
+      return `⛔ 配置目录禁止由 AI 读取（已拦截）：${p}\n安全配置（连接凭据 / API 密钥 / 模型 / MCP）仅限你本人手动查看配置目录。`
+    }
+  }
+
+  // 文件名级拦截（覆盖任何位置的配置副本）
+  if (refsProtected) {
+    if (READ_TOOLS.has(name)) {
+      return `⛔ 敏感配置文件禁止由 AI 读取（已拦截）：${p}\n安全配置（连接凭据 / API 密钥 / 模型 / MCP）仅限你本人手动查看配置目录。`
+    }
+    if (WRITE_TOOLS.has(name)) {
+      return `⛔ 配置文件禁止由 AI 直接修改（已拦截，未写入）：${p}\n安全配置（连接凭据 / API 密钥 / 只读开关 / 模型 / MCP）只能由你在配置目录手动编辑，改完重启服务生效。`
+    }
+  }
+
+  return undefined
+}
 
 /** 一次写调用的门禁决策 */
 export type WriteDecision =
@@ -31,7 +104,7 @@ export interface DecideInput {
 /** 纯决策函数：硬规则优先 → 授权窗口 → ask */
 export function decideWriteApproval(input: DecideInput): WriteDecision {
   if (input.readOnly) {
-    return { kind: "deny", reason: "⛔ 只读模式（security.readOnly 未显式关闭即生效），写操作被拒绝。如需写入请在 ~/.SapBuddy/connections.json 关闭 readOnly。" }
+    return { kind: "deny", reason: `⛔ 只读模式（security.readOnly 未显式关闭即生效），写操作被拒绝。如需写入请在 ${sapbuddyPath("connections.json")} 关闭 readOnly。` }
   }
   if (input.connectionDirty && input.toolName !== "get_connected_systems") {
     return { kind: "deny", reason: "⛔ SAP 连接配置已变更，必须先调用 get_connected_systems 确认当前连接，然后再重试本操作。" }
@@ -89,10 +162,12 @@ export function installWriteGate(
   const disposers: Array<() => void> = []
   const tools = ctx.get("tools") as { guard?: (fn: (exec: ExecLike) => string | undefined) => () => void } | undefined
 
-  // 1) 同步单调硬规则 guard
+  // 1) 同步单调硬规则 guard（配置保护对所有工具生效；写门禁仅对写工具）
   if (tools?.guard) {
     disposers.push(
       tools.guard((exec: ExecLike) => {
+        const cv = configPathViolation(exec.name, exec.arguments)
+        if (cv) return cv
         if (!isWriteTool(exec.name)) return undefined
         const decision = decideWriteApproval({
           toolName: exec.name,

@@ -100,7 +100,7 @@ async function main() {
     }
   }
 
-  // 2) preset
+  // 2) preset + 配置收口（一切配置自包含于 preset 目录，不再散落 ~/.SapBuddy）
   if (!opts.skipPreset) {
     console.log(`[2/5] 复制 preset → ${PRESET_DST}`)
     if (fs.existsSync(PRESET_DST) && !opts.force) {
@@ -111,6 +111,31 @@ async function main() {
         fs.cpSync(PRESET_SRC, PRESET_DST, { recursive: true })
       }
     }
+    // 配置种子/迁移：connections.json / settings.json / mcp.json 缺失时生成（旧版 ~/.SapBuddy 一次性迁移）
+    console.log("[2b] 配置收口：在 preset 目录生成/迁移 connections.json / settings.json / mcp.json")
+    const seedFrom = (name, example, legacy) => {
+      const dst = path.join(PRESET_DST, name)
+      if (fs.existsSync(dst)) return `已有`
+      const srcs = [legacy, path.join(PRESET_SRC, example)]
+      for (const s of srcs) {
+        if (s && fs.existsSync(s)) {
+          if (!opts.dryRun) fs.copyFileSync(s, dst)
+          return `从 ${path.basename(s)} 生成`
+        }
+      }
+      return `（无模板，跳过）`
+    }
+    const legacyConn = path.join(os.homedir(), ".SapBuddy", "connections.json")
+    const legacySet = path.join(os.homedir(), ".SapBuddy", "settings.json")
+    const legacyMcp = path.join(os.homedir(), ".SapBuddy", "mcp.json")
+    if (!opts.dryRun) fs.mkdirSync(PRESET_DST, { recursive: true })
+    console.log(`  connections.json: ${seedFrom("connections.json", "connections.example.json", legacyConn)}`)
+    console.log(`  settings.json:    ${seedFrom("settings.json", "settings.example.json", legacySet)}`)
+    console.log(`  mcp.json:         ${seedFrom("mcp.json", undefined, legacyMcp)}`)
+    for (const sub of ["logs", "output", "uploads"]) {
+      if (!opts.dryRun) fs.mkdirSync(path.join(PRESET_DST, sub), { recursive: true })
+    }
+    console.log(`  目录: logs/ output/ uploads/ 已就绪（SapBuddy 全部配置现集中于 ${PRESET_DST}）`)
   }
 
   // 3) 模型
@@ -179,10 +204,12 @@ async function main() {
 
   console.log(`
 [install] 完成 ✔ 下一步：
-  1. 填写 SAP 连接：~/.SapBuddy/connections.json（参考 preset 文档；ADT 需在 SICF 激活 /sap/bc/adt）
+  1. 填写 SAP 连接：${path.join(PRESET_DST, "connections.json")}
+     （参考 ${path.join(PRESET_DST, "connections.example.json")}；ADT 需在 SICF 激活 /sap/bc/adt）
   2. 启动：dsh web → 浏览器打开 → 侧边栏选择 "SapBuddy" preset → 开始会话
   3. 单次问答：dsh --profile headless --patch <sapbuddy-dsh>/overlays/headless.sapbuddy.yml "解释 ZPPR006"
-  （headless 需先：dsh plugin --profile headless add sapbuddy-tools）`)
+  （headless 需先：dsh plugin --profile headless add sapbuddy-tools）
+  SapBuddy 全部配置已集中于 preset 目录（connections/settings/mcp/logs/output/uploads），不再使用 ~/.SapBuddy。`)
 }
 
 await main()

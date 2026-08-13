@@ -13,7 +13,7 @@ import { z } from "zod"
 import { Type } from "typebox"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { homedir } from "node:os"
+import { sapbuddyPath } from "./sapbuddy-home.js"
 /** 阶段2起替换为 DSH 注册层；pi 仅为未迁移前保持编译的占位类型 */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ExtensionAPI = any
@@ -85,7 +85,7 @@ const REJECT_RE = /拒绝|不要|取消|算了|不干|停止|换个方案|重新
 /** 授权窗口毫秒数：读设置 .SapBuddy/settings.json 的 approvalWindowMinutes（默认 15 分钟） */
 function approvalWindowMs(): number {
   try {
-    const cfg = JSON.parse(readFileSync(join(homedir(), ".SapBuddy", "settings.json"), "utf8").toString())
+    const cfg = JSON.parse(readFileSync(sapbuddyPath("settings.json"), "utf8").toString())
     const m = Number(cfg.approvalWindowMinutes)
     if (m > 0 && Number.isFinite(m)) return m * 60 * 1000
   } catch { /* 默认 */ }
@@ -107,7 +107,7 @@ export function handleUserMessage(text: string): void {
  * （与网页端默认显示"已锁定"一致：没写该项 = 只读保护开启） */
 export function isReadOnly(): boolean {
   try {
-    const cfg = JSON.parse(readFileSync(join(homedir(), ".SapBuddy", "connections.json"), "utf8").toString())
+    const cfg = JSON.parse(readFileSync(sapbuddyPath("connections.json"), "utf8").toString())
     return cfg.security?.readOnly !== false
   } catch { return true } // 读取/解析失败时保守只读（fail-closed，与 config.ts 的 readOnly ?? true 一致）
 }

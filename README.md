@@ -13,18 +13,22 @@ sapbuddy-dsh/
 ├── packages/
 │   └── sapbuddy-tools/        # 41 个 SAP 工具（vendored from SapBuddy）+ DSH 注册层 + 写门禁
 │       ├── src/sap-tools/     # 业务实现（tools/、adtManager、config、taskTransport、auditLog、register、gate…）
-│       └── test/              # 工具层 + 转换器 + 插件加载 + 门禁单测（186 用例全绿）
-├── preset/                    # sapbuddy agent preset 模板（agent.cordis.yml + preset.yml + skills/）
+│       └── test/              # 工具层 + 转换器 + 插件加载 + 门禁单测（185 用例）
+├── preset/                    # sapbuddy agent preset 模板（agent.cordis.yml + preset.yml + skills/ + 配置示例）
 ├── overlays/
 │   └── headless.sapbuddy.yml  # headless 单次问答 overlay
 ├── scripts/
-│   ├── install.mjs            # 一键安装器（插件/preset/模型/凭据/MCP）
-│   └── mcp2dsh.mjs            # ~/.SapBuddy/mcp.json → dsh-mcp-client 配置行
+│   ├── install.mjs            # 一键安装器（插件/preset/配置收口/模型/凭据/MCP）
+│   └── mcp2dsh.mjs            # mcp.json（preset 目录）→ dsh-mcp-client 配置行
 ├── docs/
 │   ├── REQUIREMENTS.md        # 需求文档 v1.0（已获批）
 │   └── SYNC.md                # 与上游 SapBuddy 的同步工作流
 └── test/                      # (后续) 集成测试
 ```
+
+> **配置自包含**：SapBuddy 的一切配置（connections/settings/mcp/logs/output/uploads）收口在
+> 已安装 preset 目录 `~/.dsh/.agent-presets/sapbuddy/`，随 preset 一起分发/升级；工具层经
+> `sapbuddy-home.ts`（`SAPBUDDY_HOME` 可覆盖）解析，不再使用 `~/.SapBuddy`（安装器负责一次性迁移）。
 
 ## 阶段进度
 
