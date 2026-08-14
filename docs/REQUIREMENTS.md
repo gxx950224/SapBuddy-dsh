@@ -63,7 +63,10 @@ DSH 设置界面新增 "SAP 连接" 页：多连接 CRUD + 切换启用 + 测试
   - `sapbuddy-settings`（纯宿主）：`webServer` 路由 `/api/sapbuddy/connections*`，`inject:['webServer']`，
     写操作限 loopback，密码永不出响应；测试连接用 node:https 支持 ssl.allowSelfSigned
   - `sapbuddy-settings-ui`（纯客户端，宿主 apply 为空）：`settings.section` 槽注册，
-    `exports["./client"]` + `dsh.client`（inject 仅浏览器侧消费），esbuild 打 `__ModuleLoader__` bundle
+    `exports["./client"]` + `dsh.client`，esbuild 打 `__ModuleLoader__` bundle
+  - ⚠️ 客户端挂载用 **bundle 的 `exports.inject`，且必须写浏览器里的服务键**（如 `["slots"]`，
+    与官方 models 一致）；写包名（`@deepseek-ai/dsh-client-runtime`）会导致浏览器侧
+    `waiting for service` 启动失败（曾踩坑）
 - 存储：`connections-store.ts`（preset 目录 connections.json，保存后失效缓存 + markConnectionDirty，
   工具层强制"切换后先 get_connected_systems 重确认"）
 - 组合：两个行均位于 **web profile 的用户 patch 层**（`- insert:` 块；安装器追加），非 preset 内

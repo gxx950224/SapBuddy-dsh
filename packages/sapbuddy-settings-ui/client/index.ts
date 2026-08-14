@@ -170,7 +170,9 @@ function Section() {
   ])
 }
 
-export const inject = ["@deepseek-ai/dsh-client-runtime"]
+// 客户端挂载用 bundle 的 exports.inject —— 必须是浏览器里的【服务键】（如 slots），
+// 不是 package.json 的 dsh.client.inject 包名。与官方 models 设置包同模式。
+export const inject = ["slots"]
 
 export function apply(ctx) {
   ctx.slots.inject("settings.section", () => ctx.slots.register({
