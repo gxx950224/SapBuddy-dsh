@@ -11,9 +11,13 @@ SapBuddy 的 DSH 底座版：以 **DeepSeek Harness**（DSH）为 Agent 运行�
 ```
 sapbuddy-dsh/
 ├── packages/
-│   └── sapbuddy-tools/        # 41 个 SAP 工具（vendored from SapBuddy）+ DSH 注册层 + 写门禁
-│       ├── src/sap-tools/     # 业务实现（tools/、adtManager、config、taskTransport、auditLog、register、gate…）
-│       └── test/              # 工具层 + 转换器 + 插件加载 + 门禁单测（185 用例）
+│   ├── sapbuddy-tools/        # 41 个 SAP 工具（vendored from SapBuddy）+ DSH 注册层 + 写门禁 + 连接存储
+│   │   ├── src/sap-tools/     # 业务实现（tools/、adtManager、config、taskTransport、auditLog、register、gate…）
+│   │   └── test/              # 工具层 + 转换器 + 插件加载 + 门禁 + 连接存储单测（191 用例）
+│   └── sapbuddy-settings/     # DSH 设置界面 "SAP 连接" 页：宿主 webServer 路由 + 客户端 settings.section
+│       ├── src/index.ts       # 宿主：/api/sapbuddy/connections*（list/upsert/activate/delete/test）
+│       ├── client/index.ts    # 浏览器：多连接配置 + 切换启用（esbuild → dist/client.js）
+│       └── scripts/build-client.mjs
 ├── preset/                    # sapbuddy agent preset 模板（agent.cordis.yml + preset.yml + skills/ + 配置示例）
 ├── overlays/
 │   └── headless.sapbuddy.yml  # headless 单次问答 overlay

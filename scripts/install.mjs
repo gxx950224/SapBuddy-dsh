@@ -30,6 +30,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, "..")
 const PRESET_SRC = path.join(ROOT, "preset")
 const PACKAGE_SRC = path.join(ROOT, "packages", "sapbuddy-tools")
+const SETTINGS_PKG_SRC = path.join(ROOT, "packages", "sapbuddy-settings")
 const PRESET_DST = path.join(os.homedir(), ".dsh", ".agent-presets", "sapbuddy")
 const SETTINGS = path.join(os.homedir(), ".dsh", "settings.yaml")
 const CREDENTIALS = path.join(os.homedir(), ".dsh", ".credentials.yaml")
@@ -97,6 +98,44 @@ async function main() {
     if (r.status !== 0 && !opts.dryRun) {
       console.error("[install] 插件安装失败，请检查 pnpm/dsh 环境后重试（--skip-plugin 可跳过）")
       process.exit(1)
+    }
+  }
+
+  // 1b) 设置页包（仅 web profile）：sapbuddy-settings（宿主路由 + 客户端设置页）
+  if (opts.profile === "web" && !opts.skipPlugin) {
+    const pkgRef = opts.source === "npm" ? "sapbuddy-settings" : `file:${SETTINGS_PKG_SRC}`
+    console.log(`[1b] 安装 sapbuddy-settings（SAP 连接设置页）→ web profile（${pkgRef}）...`)
+    const r = run(DSH_BIN, ["plugin", "--profile", "web", "add", pkgRef])
+    if (r.status !== 0 && !opts.dryRun) {
+      console.error("[install] sapbuddy-settings 安装失败（--skip-plugin 可跳过）")
+      process.exit(1)
+    }
+    // 在 web profile 的用户 patch 层追加主机行（幂等）
+    const patchFile = path.join(os.homedir(), ".dsh", "profiles", "web", "cordis.patch.yml")
+    const row = "- id: sapbuddy-settings\n  name: 'sapbuddy-settings'\n"
+    const existing = fs.existsSync(patchFile) ? fs.readFileSync(patchFile, "utf8") : ""
+    if (existing.includes("id: sapbuddy-settings")) {
+      console.log("[1b] web profile patch 已含 sapbuddy-settings 行，跳过")
+    } else {
+      if (!opts.dryRun) {
+        fs.mkdirSync(path.dirname(patchFile), { recursive: true })
+        // 空列表 `[]` 行 → 原位替换为行；否则追加到列表末尾
+        const lines = existing.split("\n")
+        const emptyIdx = lines.findIndex((l) => /^\s*\[\s*\]\s*$/.test(l))
+        let next
+        if (emptyIdx >= 0) {
+          lines.splice(emptyIdx, 1, row.trimEnd())
+          next = lines.join("\n") + "\n"
+        } else if (existing.trim() === "") {
+          next = row
+        } else {
+          next = existing.trimEnd() + "\n" + row
+        }
+        fs.writeFileSync(patchFile, next)
+        console.log(`[1b] 已追加 sapbuddy-settings 行 → ${patchFile}（重启 dsh web 生效）`)
+      } else {
+        console.log(`[1b] [dry-run] 追加行到 ${patchFile}`)
+      }
     }
   }
 

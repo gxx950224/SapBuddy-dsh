@@ -56,3 +56,11 @@ SapBuddy 的一切配置自包含于 preset 目录（`~/.dsh/.agent-presets/sapb
 connections.json / settings.json / mcp.json / logs / output / uploads，随 preset 一起分发。
 工具层经 `sapbuddy-home.ts`（`SAPBUDDY_HOME` 可覆盖）解析；旧 `~/.SapBuddy` 仅由安装器一次性迁移。
 敏感配置目录由 `gate.ts` 的 `configPathViolation` guard 保护（bash/读/写工具拦截）。
+
+## SAP 连接设置页（2026-08 补充决策 D6）
+DSH 设置界面新增 "SAP 连接" 页（`sapbuddy-settings` 包）：多连接 CRUD + 切换启用 + 测试连接。
+- 宿主：`webServer` 服务注册同源路由 `/api/sapbuddy/connections*`（写操作限制 loopback，密码永不出响应）
+- 客户端：`settings.section` 槽注册（`exports["./client"]` + `dsh.client`，esbuild 打 `__ModuleLoader__` bundle）
+- 存储：`connections-store.ts`（preset 目录 connections.json，保存后失效缓存 + markConnectionDirty，
+  工具层强制"切换后先 get_connected_systems 重确认"）
+- 组合：`sapbuddy-settings` 主机行位于 **web profile 的用户 patch 层**（安装器追加），非 preset 内
