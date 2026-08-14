@@ -7,6 +7,7 @@
  */
 
 const React = require("react")
+const { installSettingsPanel } = require("./settings-panel")
 
 const { useState, useEffect, useCallback } = React
 
@@ -157,7 +158,7 @@ function Section() {
   ])
 
   return React.createElement("div", { style: S.wrap }, [
-    React.createElement("h3", { key: "t", style: S.title }, "🔗 SAP 连接"),
+    React.createElement("h3", { key: "t", style: S.title }, "SAP 连接"),
     React.createElement("p", { key: "i", style: S.intro },
       "配置一个或多个 SAP 系统连接（ADT）。切换为启用后，SapBuddy 会话的 SAP 工具默认使用该连接；" +
       "切换后需在会话中先调用 get_connected_systems 确认。密码仅保存在本机配置文件。"),
@@ -255,7 +256,7 @@ function McpSection() {
     ])
 
   return React.createElement("div", { style: S.wrap }, [
-    React.createElement("h3", { key: "t", style: S.title }, "🔌 MCP 服务器"),
+    React.createElement("h3", { key: "t", style: S.title }, "MCP 服务器"),
     React.createElement("p", { key: "i", style: S.intro },
       "直接编辑下方 JSON（格式与 mcp.json 一致：{\"mcpServers\": {\"<名称>\": {\"url\": ..., \"headers\": {...}, \"disabled\": false}}}）。" +
       "保存后点「生成 dsh-mcp-client 配置」写入 DSH home 层（所有 profile 生效），数秒内热生效（无需重启），MCP 工具以 mcp__<服务器>__<工具> 在任意会话可用。"),
@@ -283,21 +284,26 @@ function McpSection() {
 
 // 客户端挂载用 bundle 的 exports.inject —— 必须是浏览器里的【服务键】（如 slots），
 // 不是 package.json 的 dsh.client.inject 包名。与官方 models 设置包同模式。
-export const inject = ["slots"]
+export const inject = ["slots", "locale"]
 
 export function apply(ctx) {
+  // 遮蔽官方面板：节导航图标扩展（priority:-1，低者渲染；可逆）
+  ctx.effect(() => {
+    const ds = installSettingsPanel(ctx)
+    return () => { for (const d of ds) { try { d() } catch { /* 忽略 */ } } }
+  }, "sapbuddy-settings: panel shadow")
   ctx.slots.inject("settings.section", () => ctx.slots.register({
     name: "settings.section",
     id: "sapbuddy-connections",
     order: 90,
-    label: () => "🔗 SAP 连接",
+    label: () => "SAP 连接",
     inject: () => ({})
   }, Section))
   ctx.slots.inject("settings.section", () => ctx.slots.register({
     name: "settings.section",
     id: "sapbuddy-mcp",
     order: 91,
-    label: () => "🔌 MCP 服务器",
+    label: () => "MCP 服务器",
     inject: () => ({})
   }, McpSection))
 }
