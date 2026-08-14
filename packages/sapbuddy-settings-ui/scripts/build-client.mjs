@@ -24,7 +24,7 @@ const result = await build({
 })
 
 const code = result.outputFiles[0].text
-const wrapped = `/* sapbuddy-settings client bundle (esbuild) */\nwindow.__ModuleLoader__.load({\n  id: "sapbuddy-settings",\n  factory: (require) => {\n    var module = { exports: {} };\n    var exports = module.exports;\n${code}\n    return module.exports;\n  }\n});\n`
+const wrapped = `/* sapbuddy-settings client bundle (esbuild) */\nwindow.__ModuleLoader__.load({\n  id: "sapbuddy-settings-ui",\n  factory: (require) => {\n    var module = { exports: {} };\n    var exports = module.exports;\n${code}\n    return module.exports;\n  }\n});\n`
 mkdirSync(join(ROOT, "dist"), { recursive: true })
 writeFileSync(join(ROOT, "dist/client.js"), wrapped)
 console.log(`[build-client] dist/client.js ${Buffer.byteLength(wrapped)} bytes`)

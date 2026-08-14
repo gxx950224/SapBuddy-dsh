@@ -17,12 +17,15 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.3
-      esbuild:
-        specifier: ^0.25.0
-        version: 0.25.12
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
+
+  packages/sapbuddy-settings-ui:
+    devDependencies:
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
 
   packages/sapbuddy-tools:
     dependencies:
