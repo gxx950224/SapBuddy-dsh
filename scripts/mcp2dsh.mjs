@@ -36,7 +36,7 @@ function main() {
     process.exit(1)
   }
   console.log(`[mcp2dsh] 已生成 ${r.count} 行 → ${r.target}`)
-  console.log(`[mcp2dsh] 提示：重启 dsh 后生效；或手工编辑 ${HOME_PATCH} 管理 MCP 服务器。`)
+  console.log(`[mcp2dsh] 提示：patch 层热生效（数秒，无需重启）；或手工编辑 ${HOME_PATCH} 管理 MCP 服务器。`)
   if (fs.existsSync(HOME_PATCH)) {
     console.log(`[mcp2dsh] 当前 home patch 内容：\n${fs.readFileSync(HOME_PATCH, "utf8")}`)
   }

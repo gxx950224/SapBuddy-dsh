@@ -89,3 +89,47 @@ test("appendMcpToHomePatch：写入 home patch，幂等替换生成块", () => {
   // 不应重复累积旧块
   assert.ok(!text2.includes("mcp-sap:"), "被删除的服务器不应残留")
 })
+
+test("replaceMcpServers：整体替换（支持 mcpServers 包装与直接映射；校验失败拒绝）", () => {
+  // 包装形式
+  let r = store.replaceMcpServers({ mcpServers: { a: { url: "https://a/mcp" }, b: { url: "https://b/mcp", headers: { "X-K": "v" } } } })
+  assert.equal(r.ok, true)
+  assert.equal(store.listMcpServers().length, 2)
+  // 直接映射形式（覆盖旧值）
+  r = store.replaceMcpServers({ c: { url: "https://c/mcp" } })
+  assert.equal(r.ok, true)
+  const list = store.listMcpServers()
+  assert.equal(list.length, 1)
+  assert.equal(list[0].name, "c")
+  // 校验失败整体拒绝
+  r = store.replaceMcpServers({ ok1: { url: "https://ok" }, bad: { url: "not a url" } })
+  assert.equal(r.ok, false)
+  assert.ok(r.error.includes("bad"), "错误应指名坏服务器")
+  assert.equal(store.listMcpServers().length, 1, "失败不应写盘")
+  // 非对象顶层拒绝
+  assert.equal(store.replaceMcpServers([]).ok, false)
+  assert.equal(store.replaceMcpServers("x").ok, false)
+})
+
+test("appendMcpToHomePatch：无服务器时 home patch 必须是合法空数组（修复启动崩溃）", () => {
+  // 清空所有服务器后重新生成 → patch 应为 []，且能被 YAML 解析为数组
+  store.replaceMcpServers({ mcpServers: {} })
+  const r = store.appendMcpToHomePatch()
+  assert.equal(r.ok, true)
+  assert.equal(r.count, 0)
+  const target = join(fakeHome, ".dsh", "cordis.patch.yml")
+  const text = readFileSync(target, "utf8")
+  const yaml = require("js-yaml")
+  const parsed = yaml.load(text)
+  assert.ok(Array.isArray(parsed), "home patch 必须是顶层数组（否则 dsh 启动失败）")
+  assert.equal(parsed.length, 0, "无服务器时数组应为空")
+
+  // 加一台再生成 → 仍是合法数组且含行
+  store.saveMcpServer("sap", { url: "https://host/mcp" })
+  const r2 = store.appendMcpToHomePatch()
+  assert.equal(r2.ok, true)
+  const parsed2 = yaml.load(readFileSync(target, "utf8"))
+  assert.ok(Array.isArray(parsed2), "有服务器时仍须是顶层数组")
+  assert.equal(parsed2.length, 1, "应恰好一行 dsh-mcp-client")
+  assert.equal(parsed2[0].id, "mcp-sap")
+})

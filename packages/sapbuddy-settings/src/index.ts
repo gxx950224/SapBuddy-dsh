@@ -18,6 +18,7 @@ import {
   listMcpServers,
   saveMcpServer,
   deleteMcpServer,
+  replaceMcpServers,
   getMcpServer,
   appendMcpToHomePatch,
 } from "sapbuddy-tools/mcp-store"
@@ -29,6 +30,7 @@ const ROUTES = [
   "/api/sapbuddy/connections/test",
   "/api/sapbuddy/mcp",
   "/api/sapbuddy/mcp/delete",
+  "/api/sapbuddy/mcp/replace",
   "/api/sapbuddy/mcp/test",
   "/api/sapbuddy/mcp/generate",
 ]
@@ -217,6 +219,7 @@ export function apply(ctx: {
   )
   disposers.push(
     postRoute("/api/sapbuddy/mcp/delete", (b) => deleteMcpServer(String(b.name ?? ""))),
+    postRoute("/api/sapbuddy/mcp/replace", (b) => replaceMcpServers(b.config)),
     postRoute("/api/sapbuddy/mcp/test", async (b) => {
       const r = await testMcpServer(String(b.name ?? ""))
       return r.ok ? { ok: true, status: r.status, tools: r.tools, message: r.message } : { ok: false, error: r.message ?? `服务器 ${String(b.name)} 测试失败` }
@@ -224,7 +227,7 @@ export function apply(ctx: {
     postRoute("/api/sapbuddy/mcp/generate", async () => {
       const r = appendMcpToHomePatch()
       if (!r.ok) return { ok: false, error: r.error }
-      return { ok: true, target: r.target, count: r.count, message: `已生成 ${r.count} 行 dsh-mcp-client 配置 → ${r.target}；重启 dsh 后生效，所有会话/preset 可用` }
+      return { ok: true, target: r.target, count: r.count, message: `已生成 ${r.count} 行 dsh-mcp-client 配置 → ${r.target}；patch 层热生效（约数秒，无需重启），刷新页面/新会话即可用` }
     }),
   )
 

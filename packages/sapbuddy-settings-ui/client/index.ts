@@ -181,32 +181,39 @@ async function listMcp() {
 
 function McpSection() {
   const [servers, setServers] = useState([])
-  const [mode, setMode] = useState(null) // null | "new" | <name 编辑>
-  const [draft, setDraft] = useState({ headersText: "" })
+  const [jsonText, setJsonText] = useState("")
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
   const [err, setErr] = useState(null)
   const [tests, setTests] = useState({})
 
+  // 列表 → {"mcpServers": {...}} JSON 文本
+  const toJson = (list) => {
+    const obj = {}
+    for (const s of list) {
+      obj[s.name] = { url: s.url, ...(s.headers ? { headers: s.headers } : {}), ...(s.disabled ? { disabled: true } : {}) }
+    }
+    return JSON.stringify({ mcpServers: obj }, null, 2)
+  }
+
   const refresh = useCallback(async () => {
-    try { setServers(await listMcp()); setErr(null) } catch (e) { setErr("加载失败: " + (e.message ?? e)) }
+    try {
+      const list = await listMcp()
+      setServers(list)
+      setJsonText(toJson(list))
+      setErr(null)
+    } catch (e) { setErr("加载失败: " + (e.message ?? e)) }
   }, [])
   useEffect(() => { refresh() }, [refresh])
-
-  const set = (key) => (evt) => setDraft((d) => ({ ...d, [key]: evt.target.type === "checkbox" ? evt.target.checked : evt.target.value }))
 
   const save = async () => {
     setBusy(true)
     try {
-      const headers = {}
-      for (const line of (draft.headersText || "").split("\n")) {
-        const i = line.indexOf(":")
-        if (i > 0) headers[line.slice(0, i).trim()] = line.slice(i + 1).trim()
-      }
-      const r = await post(MCP_API, { name: draft.name, server: { url: draft.url, headers: Object.keys(headers).length ? headers : undefined, disabled: draft.disabled } })
-      if (!r.ok) { setErr("保存失败: " + (r.error ?? "")); setMsg(null); return }
-      setMsg("已保存 MCP 服务器 " + draft.name); setErr(null)
-      setMode(null); setDraft({ headersText: "" })
+      let config
+      try { config = JSON.parse(jsonText) } catch (e) { setErr("JSON 解析失败: " + (e.message ?? e)); setBusy(false); return }
+      const r = await post(MCP_API + "/replace", { config })
+      if (!r.ok) { setErr("保存失败: " + (r.error ?? "未知错误")); setMsg(null); return }
+      setMsg("已保存 mcp.json（共 " + servers.length + " 台服务器）"); setErr(null)
       refresh()
     } catch (e) { setErr("保存失败: " + (e.message ?? e)) } finally { setBusy(false) }
   }
@@ -231,16 +238,6 @@ function McpSection() {
     } catch (e) { setErr("生成失败: " + (e.message ?? e)) } finally { setBusy(false) }
   }
 
-  const startNew = () => setMode("new"), startEdit = (s) => setMode(s.name) || setDraft({ name: s.name, url: s.url, disabled: s.disabled, headersText: (s.headers ? Object.entries(s.headers).map(([k, v]) => k + ": " + v) : []).join("\n") })
-
-  const mcpInput = (key, label, ph, textarea) =>
-    React.createElement("label", { key: key, style: S.field }, [
-      React.createElement("span", { key: "l", style: S.label }, label),
-      textarea
-        ? React.createElement("textarea", { key: "i", style: { ...S.input, height: 64, paddingTop: 6, fontFamily: "monospace", fontSize: 12 }, value: draft[key] ?? "", placeholder: ph ?? "", onChange: set(key) })
-        : React.createElement("input", { key: "i", style: S.input, value: draft[key] ?? "", placeholder: ph ?? "", onChange: set(key) }),
-    ])
-
   const row = (s) =>
     React.createElement("li", { key: s.name, style: S.card }, [
       React.createElement("div", { key: "r", style: S.row }, [
@@ -250,7 +247,6 @@ function McpSection() {
           : React.createElement("span", { key: "b", style: { ...S.badge, ...S.badgeActive } }, "启用中"),
         React.createElement("div", { key: "x", style: S.actions }, [
           React.createElement("button", { key: "t", style: S.btn, onClick: () => doTest(s.name) }, "测试"),
-          React.createElement("button", { key: "e", style: S.btn, onClick: () => startEdit(s) }, "编辑"),
           React.createElement("button", { key: "d", style: { ...S.btn, ...S.btnDanger }, onClick: () => doDelete(s.name) }, "删除"),
         ]),
       ]),
@@ -258,36 +254,30 @@ function McpSection() {
       tests[s.name] ? React.createElement("p", { key: "tr", style: S.meta }, tests[s.name]) : null,
     ])
 
-  const editor = React.createElement("div", { key: "e", style: S.editor }, [
-    React.createElement("div", { key: "g", style: S.grid }, [
-      mcpInput("name", "服务器名（唯一，如 sap-ai）", "sap-ai"),
-      mcpInput("url", "地址（MCP streamable-http）", "https://host/sap/bc/adt/mcp"),
-      mcpInput("headersText", "请求头（每行 键: 值）", "Authorization: Bearer xxx", true),
-    ]),
-    React.createElement("label", { key: "d", style: { ...S.field, flexDirection: "row", alignItems: "center", gap: 8 } }, [
-      React.createElement("input", { key: "c", type: "checkbox", checked: Boolean(draft.disabled), onChange: set("disabled") }),
-      React.createElement("span", { key: "t", style: S.label }, "停用（不生成配置行）"),
-    ]),
-    React.createElement("div", { key: "a", style: { display: "flex", gap: 8, justifyContent: "flex-end" } }, [
-      React.createElement("button", { key: "c", style: S.btn, onClick: () => { setMode(null); setDraft({ headersText: "" }) } }, "取消"),
-      React.createElement("button", { key: "s", style: { ...S.btn, ...S.btnPrimary }, disabled: busy, onClick: save }, busy ? "保存中…" : "保存"),
-    ]),
-  ])
-
   return React.createElement("div", { style: S.wrap }, [
     React.createElement("h3", { key: "t", style: S.title }, "MCP 服务器"),
     React.createElement("p", { key: "i", style: S.intro },
-      "配置外部 MCP 服务器（如 SAP 端 ZSX_MCP）。保存后点下方「生成 dsh-mcp-client 配置」，" +
-      "写入 DSH home 层配置（对所有 profile 生效），重启后 MCP 工具以 mcp__<服务器>__<工具> 在任意会话可用。"),
+      "直接编辑下方 JSON（格式与 mcp.json 一致：{\"mcpServers\": {\"<名称>\": {\"url\": ..., \"headers\": {...}, \"disabled\": false}}}）。" +
+      "保存后点「生成 dsh-mcp-client 配置」写入 DSH home 层（所有 profile 生效），数秒内热生效（无需重启），MCP 工具以 mcp__<服务器>__<工具> 在任意会话可用。"),
     msg ? React.createElement("p", { key: "m", style: S.msg }, msg) : null,
     err ? React.createElement("p", { key: "e", style: S.err }, err) : null,
-    React.createElement("ul", { key: "l", style: S.list }, servers.map(row)),
-    mode === null
-      ? React.createElement("div", { key: "btns", style: { display: "flex", gap: 10, alignItems: "center" } }, [
-          React.createElement("button", { key: "add", style: { ...S.btn, ...S.btnPrimary, height: 36, borderRadius: 18, padding: "0 14px" }, onClick: startNew }, "＋ 添加服务器"),
-          React.createElement("button", { key: "gen", style: { ...S.btn, height: 36, borderRadius: 18, padding: "0 14px" }, disabled: busy, onClick: doGenerate }, "生成 dsh-mcp-client 配置（重启生效）"),
+    React.createElement("label", { key: "j", style: S.field }, [
+      React.createElement("span", { key: "l", style: S.label }, "mcp.json 内容（JSON）"),
+      React.createElement("textarea", {
+        key: "t", style: { ...S.input, height: 240, padding: "10px 12px", fontFamily: "monospace", fontSize: 12, lineHeight: "18px", whiteSpace: "pre", overflow: "auto" },
+        value: jsonText, spellCheck: false, onChange: (evt) => setJsonText(evt.target.value),
+      }),
+    ]),
+    React.createElement("div", { key: "acts", style: { display: "flex", gap: 8, justifyContent: "flex-end" } }, [
+      React.createElement("button", { key: "gen", style: { ...S.btn, height: 36, borderRadius: 18, padding: "0 14px" }, disabled: busy, onClick: doGenerate }, "生成 dsh-mcp-client 配置（热生效）"),
+      React.createElement("button", { key: "s", style: { ...S.btn, ...S.btnPrimary, height: 36, borderRadius: 18, padding: "0 14px" }, disabled: busy, onClick: save }, busy ? "保存中…" : "保存 mcp.json"),
+    ]),
+    servers.length > 0
+      ? React.createElement("div", { key: "list", style: { marginTop: 8 } }, [
+          React.createElement("p", { key: "h", style: S.label }, "已保存的服务器（测试/删除）"),
+          React.createElement("ul", { key: "l", style: S.list }, servers.map(row)),
         ])
-      : editor,
+      : null,
   ])
 }
 

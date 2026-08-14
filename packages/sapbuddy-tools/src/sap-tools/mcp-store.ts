@@ -97,6 +97,28 @@ export function getMcpServer(name: string): McpServer | undefined {
   return readRaw()[name]
 }
 
+/** 整体替换 mcp.json（设置页 JSON 编辑器入口）。接受 {"mcpServers": {...}} 或直接映射 */
+export function replaceMcpServers(raw: unknown): { ok: true } | { ok: false; error: string } {
+  let servers: Record<string, McpServer>
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && "mcpServers" in raw) {
+    servers = (raw as { mcpServers: unknown }).mcpServers as Record<string, McpServer>
+  } else {
+    servers = raw as Record<string, McpServer>
+  }
+  if (!servers || typeof servers !== "object" || Array.isArray(servers)) {
+    return { ok: false, error: "JSON 顶层必须是对象（mcpServers 映射，如 {\"mcpServers\": {...}}）" }
+  }
+  for (const [name, s] of Object.entries(servers)) {
+    if (!s || typeof s !== "object") return { ok: false, error: `服务器 ${name} 的配置必须是对象` }
+    const err = validate(name, s)
+    if (err) return { ok: false, error: `[${name}] ${err}` }
+  }
+  try { writeRaw(servers) } catch (e) {
+    return { ok: false, error: `写入失败: ${e instanceof Error ? e.message : String(e)}` }
+  }
+  return { ok: true }
+}
+
 /** 行 id：serverName 约束 [A-Za-z0-9_-]{1,32}；id 需小写 kebab */
 function sanitizeId(name: string): string {
   return "mcp-" + String(name).toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 32)
@@ -126,7 +148,8 @@ export function renderMcpClientRows(servers: Record<string, McpServer>): string 
   return out.join("\n")
 }
 
-/** 把 mcp.json 的服务器追加为 dsh-mcp-client 行（写入 home 级 patch；幂等去重） */
+/** 把 mcp.json 的服务器追加为 dsh-mcp-client 行（写入 home 级 patch；幂等去重）。
+ * ⚠️ 必须保证 home patch 始终是合法顶层数组：无服务器时写 `[]`，绝不允许只剩注释。 */
 export function appendMcpToHomePatch(): { ok: true; target: string; count: number } | { ok: false; error: string } {
   const servers = readRaw()
   const rows = renderMcpClientRows(servers)
@@ -135,17 +158,15 @@ export function appendMcpToHomePatch(): { ok: true; target: string; count: numbe
     mkdirSync(path.dirname(target), { recursive: true })
     const existing = existsSync(target) ? readFileSync(target, "utf8") : ""
     const header = `# MCP 服务器（由 sapbuddy-dsh 设置页生成，来源 ${MCP_FILE}）`
-    if (existing.includes(header)) {
-      // 已有生成块：整体替换该块（以 header 为界）
-      const idx = existing.indexOf(header)
-      const rest = existing.slice(idx)
-      const block = `${header}\n${rows}\n`
-      const next = existing.slice(0, idx).trimEnd() + "\n" + block
-      writeFileSync(target, next)
-    } else {
-      const block = `\n${header}\n${rows}\n`
-      appendFileSync(target, existing.trimEnd() + "\n" + block)
-    }
+    // 1) 去掉 `[]` 占位行（空列表），保留其余内容
+    let base = existing.split("\n").filter((l) => !/^\s*\[\s*\]\s*$/.test(l)).join("\n").trimEnd()
+    // 2) 若已有 MCP 块（header 行），截掉该块及之后的所有内容（块整体替换）
+    const headerIdx = base.indexOf(header)
+    if (headerIdx >= 0) base = base.slice(0, headerIdx).trimEnd()
+    // 3) 组装 body：无服务器 → 合法空数组；有 → header + 行
+    const body = rows.trim() === "" ? "[]" : `${header}\n${rows}\n`
+    const next = base ? `${base}\n${body}` : body
+    writeFileSync(target, next)
     return { ok: true, target, count: rows.split("\n").filter(Boolean).length }
   } catch (e) {
     return { ok: false, error: `写入 home patch 失败: ${e instanceof Error ? e.message : String(e)}` }
