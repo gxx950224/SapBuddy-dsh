@@ -110,9 +110,10 @@ async function main() {
       console.error("[install] sapbuddy-settings 安装失败（--skip-plugin 可跳过）")
       process.exit(1)
     }
-    // 在 web profile 的用户 patch 层追加主机行（幂等）
+    // 在 web profile 的用户 patch 层追加主机行（幂等）。新增行必须用 insert 块——
+    // 裸 `- id:` 是给已存在行的覆盖补丁，会报 "entry not found"。
     const patchFile = path.join(os.homedir(), ".dsh", "profiles", "web", "cordis.patch.yml")
-    const row = "- id: sapbuddy-settings\n  name: 'sapbuddy-settings'\n"
+    const row = "- insert:\n    - id: sapbuddy-settings\n      name: 'sapbuddy-settings'\n"
     const existing = fs.existsSync(patchFile) ? fs.readFileSync(patchFile, "utf8") : ""
     if (existing.includes("id: sapbuddy-settings")) {
       console.log("[1b] web profile patch 已含 sapbuddy-settings 行，跳过")
