@@ -6,25 +6,23 @@
  *   0. 构建前置：三个包的 dist/ 缺失时自动 pnpm -r build（全新 clone 无 dist）
  *   1. 安装 sapbuddy-tools / sapbuddy-settings / sapbuddy-settings-ui 插件到指定 profile（dsh plugin add）
  *   2. 复制 preset → ~/.dsh/.agent-presets/sapbuddy/
- *   3. 生成 settings.yaml 的 llm-pi-ai 多模型段（deepseek/qwen/moonshot/zhipu/doubao/minimax/hunyuan/ernie）
- *   4. 写 API Key 到 ~/.dsh/.credentials.yaml（环境变量或交互输入）
+ *
+ * 不做什么：**不配置模型/凭据**——模型直接复用 DSH 自身的配置（Web 模型页），
+ * sapbuddy-dsh 不写 settings.yaml 的模型段、不写 ~/.dsh/.credentials.yaml。
  *
  * 用法：
  *   node scripts/install.mjs                 # 默认 web profile，file: 安装（推荐，git clone 分发）
  *   node scripts/install.mjs --source npm    # 从 npm registry 安装（需 3 个包已发布；sapbuddy-settings
  *                                            #   的依赖须改为 semver 而非 file:，见包 README）
  *   node scripts/install.mjs --profile headless
- *   node scripts/install.mjs --yes           # 非交互（凭据只从环境变量读）
  *   node scripts/install.mjs --dry-run       # 预览不执行
  *
- * 环境变量（--yes 或非 TTY 时用于写凭据）：DEEPSEEK_API_KEY / QWEN_API_KEY / ...
  * DSH_BIN 可覆盖 dsh 可执行文件路径。
  */
 import { spawnSync } from "node:child_process"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import readline from "node:readline"
 import { fileURLToPath } from "node:url"
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -34,28 +32,14 @@ const PACKAGE_SRC = path.join(ROOT, "packages", "sapbuddy-tools")
 const SETTINGS_PKG_SRC = path.join(ROOT, "packages", "sapbuddy-settings")
 const SETTINGS_UI_PKG_SRC = path.join(ROOT, "packages", "sapbuddy-settings-ui")
 const PRESET_DST = path.join(os.homedir(), ".dsh", ".agent-presets", "sapbuddy")
-const SETTINGS = path.join(os.homedir(), ".dsh", "settings.yaml")
-const CREDENTIALS = path.join(os.homedir(), ".dsh", ".credentials.yaml")
 const DSH_BIN = process.env.DSH_BIN || "dsh"
-
-/** 默认多模型 provider 模板（与上游 SapBuddy models.json 一致，全部 openai-completions 网关） */
-const PROVIDERS = [
-  { key: "deepseek", env: "DEEPSEEK_API_KEY", baseURL: "https://api.deepseek.com/v1", models: ["deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner"] },
-  { key: "qwen", env: "QWEN_API_KEY", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", models: ["qwen-plus", "qwen-max", "qwen-max-latest", "qwen2.5-coder-32b-instruct", "qwen3-coder-plus"] },
-  { key: "moonshot", env: "MOONSHOT_API_KEY", baseURL: "https://api.moonshot.cn/v1", models: ["moonshot-v1-8k", "moonshot-v1-32k", "kimi-k2"] },
-  { key: "zhipu", env: "ZHIPU_API_KEY", baseURL: "https://open.bigmodel.cn/api/paas/v4", models: ["glm-4-plus", "glm-4-flash", "glm-4-air", "glm-4.5"] },
-  { key: "doubao", env: "DOUBAO_API_KEY", baseURL: "https://ark.cn-beijing.volces.com/api/v3", models: ["doubao-seed-1.6", "doubao-seed-1.6-250615", "doubao-pro-32k"] },
-  { key: "minimax", env: "MINIMAX_API_KEY", baseURL: "https://api.minimax.com/v1", models: ["MiniMax-M2.7", "abab6.5s-chat", "MiniMax-Text-01"] },
-  { key: "hunyuan", env: "HUNYUAN_API_KEY", baseURL: "https://api.hunyuan.cloud.tencent.com/v1", models: ["hunyuan-turbo", "hunyuan-pro", "hunyuan-standard"] },
-  { key: "ernie", env: "ERNIE_API_KEY", baseURL: "https://qianfan.baidubce.com/v2", models: ["ernie-4.5", "ernie-4.0-8k", "ernie-speed-128k", "ernie-3.5-8k"] },
-]
 
 function parseArgs(argv) {
   const opts = {
     profile: "web",
     source: "file",
-    skipPlugin: false, skipPreset: false, skipModels: false, skipCredentials: false,
-    force: false, yes: false, dryRun: false,
+    skipPlugin: false, skipPreset: false,
+    force: false, dryRun: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -63,10 +47,7 @@ function parseArgs(argv) {
     else if (a === "--source") opts.source = argv[++i]
     else if (a === "--skip-plugin") opts.skipPlugin = true
     else if (a === "--skip-preset") opts.skipPreset = true
-    else if (a === "--skip-models") opts.skipModels = true
-    else if (a === "--skip-credentials") opts.skipCredentials = true
     else if (a === "--force") opts.force = true
-    else if (a === "--yes") opts.yes = true
     else if (a === "--dry-run") opts.dryRun = true
     else { console.error(`[install] 未知参数: ${a}`); process.exit(2) }
   }
@@ -82,12 +63,7 @@ function run(cmd, args) {
   return r
 }
 
-function ask(question) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stderr })
-  return new Promise((resolve) => rl.question(question, (ans) => { rl.close(); resolve(ans.trim()) }))
-}
-
-async function main() {
+function main() {
   opts = parseArgs(process.argv.slice(2))
   console.log(`[install] SapBuddy × DeepSeek Harness 安装器（profile=${opts.profile}, source=${opts.source}）`)
 
@@ -116,21 +92,21 @@ async function main() {
     ]
     const missing = entries.filter(([pkg, rel]) => !fs.existsSync(path.join(pkg, rel)))
     if (missing.length > 0) {
-      console.log("[0/4] dist 缺失，执行 pnpm -r build 构建 3 个包 ...")
+      console.log("[0/3] dist 缺失，执行 pnpm -r build 构建 3 个包 ...")
       const b = spawnSync("pnpm", ["-r", "build"], { cwd: ROOT, stdio: "inherit", shell: process.platform === "win32" })
       if (b.status !== 0) {
         console.error("[install] 构建失败：请确认已安装 pnpm 且仓库依赖已就绪（pnpm install），或用 --skip-plugin 跳过插件安装")
         process.exit(1)
       }
     } else {
-      console.log("[0/4] dist 已存在，跳过构建")
+      console.log("[0/3] dist 已存在，跳过构建")
     }
   }
 
   // 1) 插件
   if (!opts.skipPlugin) {
     const pkgRef = opts.source === "npm" ? "sapbuddy-tools" : `file:${PACKAGE_SRC}`
-    console.log(`[1/4] 安装 sapbuddy-tools → profile "${opts.profile}"（${pkgRef}）...`)
+    console.log(`[1/3] 安装 sapbuddy-tools → profile "${opts.profile}"（${pkgRef}）...`)
     const r = run(DSH_BIN, ["plugin", "--profile", opts.profile, "add", pkgRef])
     if (r.status !== 0 && !opts.dryRun) {
       console.error("[install] 插件安装失败，请检查 pnpm/dsh 环境后重试（--skip-plugin 可跳过）")
@@ -181,7 +157,7 @@ async function main() {
 
   // 2) preset + 配置收口（一切配置自包含于 preset 目录，不再散落 ~/.SapBuddy）
   if (!opts.skipPreset) {
-    console.log(`[2/4] 复制 preset → ${PRESET_DST}`)
+    console.log(`[2/3] 复制 preset → ${PRESET_DST}`)
     if (fs.existsSync(PRESET_DST) && !opts.force) {
       console.log("[install] preset 已存在（--force 覆盖；不覆盖以保留你的修改）")
     } else {
@@ -228,74 +204,15 @@ async function main() {
     console.log(`  目录: logs/ output/ uploads/ 已就绪（SapBuddy 全部配置现集中于 ${PRESET_DST}）`)
   }
 
-  // 3) 模型
-  if (!opts.skipModels) {
-    console.log("[3/4] 生成 settings.yaml llm-pi-ai 多模型段")
-    const existing = fs.existsSync(SETTINGS) ? fs.readFileSync(SETTINGS, "utf8") : ""
-    const hasSection = /^\s*llm-pi-ai\s*:/m.test(existing)
-    const hasProviderEntries = existing.includes("apiKeyEnv:")
-    if (hasSection && hasProviderEntries) {
-      console.log("[install] settings.yaml 已有 llm-pi-ai 段（含模型），跳过（可在 Web 模型页或该文件维护）")
-    } else {
-      const lines = ["", "llm-pi-ai:", "  providers:"]
-      for (const p of PROVIDERS) {
-        lines.push(`    ${p.key}:`)
-        lines.push(`      apiKeyEnv: ${p.env}`)
-        lines.push(`      api: openai-completions`)
-        lines.push(`      baseURL: ${p.baseURL}`)
-        lines.push(`      models:`)
-        for (const m of p.models) lines.push(`        - id: ${m}`)
-      }
-      const block = lines.join("\n") + "\n"
-      if (opts.dryRun) { console.log(block) } else {
-        fs.mkdirSync(path.dirname(SETTINGS), { recursive: true })
-        // 段已存在但 providers 为空（如 providers: {}）→ 整段替换，避免 YAML 重复键
-        const start = existing.search(/^llm-pi-ai\s*:/m)
-        const rest = existing.slice(start)
-        const m = rest.match(/\n(?=^[A-Za-z0-9_.-]+\s*:)/m)
-        const end = m ? start + m.index + 1 : existing.length
-        const next = hasSection ? existing.slice(0, start) + block.trimEnd() + existing.slice(end) : existing.trimEnd() + "\n" + block
-        fs.writeFileSync(SETTINGS, next)
-        console.log("[install] 已写入 llm-pi-ai 段 → " + SETTINGS)
-      }
-    }
-  }
-
-  // 4) 凭据
-  if (!opts.skipCredentials) {
-    console.log("[4/4] API Key 凭据 → ~/.dsh/.credentials.yaml")
-    const creds = fs.existsSync(CREDENTIALS) ? fs.readFileSync(CREDENTIALS, "utf8") : ""
-    for (const p of PROVIDERS) {
-      const fromEnv = process.env[p.env]
-      let value = fromEnv
-      if (!value && !opts.yes && process.stdin.isTTY) {
-        value = await ask(`  ${p.key} 的 ${p.env}（留空跳过）: `)
-      }
-      if (value) {
-        const re = new RegExp(`^${p.env}\\s*:.*$`, "m")
-        const line = `${p.env}: ${value}`
-        if (!opts.dryRun) {
-          fs.mkdirSync(path.dirname(CREDENTIALS), { recursive: true })
-          const next = re.test(creds) ? creds.replace(re, line) : creds.trimEnd() + "\n" + line + "\n"
-          fs.writeFileSync(CREDENTIALS, next)
-        } else {
-          console.log(`  [dry-run] 写入 ${line.slice(0, p.env.length + 8)}…`)
-        }
-      }
-    }
-    if (opts.yes && !process.env.DEEPSEEK_API_KEY) {
-      console.log("[install] --yes 且未设置 DEEPSEEK_API_KEY：跳过凭据（可在 Web 模型页补填）")
-    }
-  }
-
   console.log(`
 [install] 完成 ✔ 下一步：
   1. 填写 SAP 连接：${path.join(PRESET_DST, "connections.json")}
      （参考 ${path.join(PRESET_DST, "connections.example.json")}；ADT 需在 SICF 激活 /sap/bc/adt）
-  2. 启动：dsh web → 浏览器打开 → 侧边栏选择 "SapBuddy" preset → 开始会话
-  3. 单次问答：dsh --profile headless --patch <sapbuddy-dsh>/overlays/headless.sapbuddy.yml "解释 ZPPR006"
+  2. 模型：直接使用 DSH 自身配置（Web 设置 → 模型页选择 provider/模型；如需填 key 也在此页）
+  3. 启动：dsh web → 浏览器打开 → 侧边栏选择 "SapBuddy" preset → 开始会话
+  4. 单次问答：dsh --profile headless --patch <sapbuddy-dsh>/overlays/headless.sapbuddy.yml "解释 ZPPR006"
   （headless 需先：dsh plugin --profile headless add sapbuddy-tools）
   SapBuddy 配置集中于 preset 目录（connections/settings/logs/output/uploads），不再使用 ~/.SapBuddy。`)
 }
 
-await main()
+main()

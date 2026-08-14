@@ -19,7 +19,7 @@
 - **Host（不改）**：工具/技能/会话/模型路由/审批/沙箱/subagents/Web/agent-presets 注册表。
 - **Preset（sapbuddy）**：persona（SYSTEM.md 铁律精简）、sapbuddy-tools 行、skills 挂载（customSkillDirs→preset skills/）、standard 继承组（plan/compaction/delegation）。
 - **写门禁**：`ctx.tools.guard()` 硬规则（只读/连接变更/命名空间）→ `tools/pre-execute` ask 门（GUI 审批）→ 确认词授权窗口（headless 回退）；开发客户端守卫/内容扫描/审计留在 execute。
-- **模型**：`llm-pi-ai` providers（settings.yaml）+ `~/.dsh/.credentials.yaml`（apiKeyEnv 引用）。
+- **模型**：直接复用 DSH 自身配置（Web 模型页）；sapbuddy-dsh **不写** settings.yaml 模型段、不写凭据。
 - **MCP**：用户在 `~/.dsh/profiles/web/cordis.patch.yml`（profile 层）加 dsh-mcp-client insert 行（streamable-http）；工具名 `mcp__<server>__<tool>`。
 - **headless**：不走 preset → `--patch overlays/headless.sapbuddy.yml` 直接挂 persona + sapbuddy-tools + skills。
 
@@ -31,7 +31,7 @@
 | 2 | 注册适配层（zod→spec + ctx.tools.register） | ✅ 177 |
 | 3 | 写门禁（guard + ask + 窗口）+ execute 包装 | ✅ 186 |
 | 4 | sapbuddy preset + skills + standingKeyFor 校验 | ✅ mounted OK |
-| 5 | 安装器 + 模型/凭据配置落盘 | ✅ |
+| 5 | 安装器（插件/preset；模型复用 DSH） | ✅ |
 | 6 | headless overlay + 文档 + 端到端验证 | ✅ headless 实测通过 |
 
 ## 验收清单
@@ -39,7 +39,7 @@
 2. 会话工具目录含 41 个 SAP 工具（若用户配置了 MCP 另有 `mcp__*` 工具），无重名
 3. 写门禁：只读默认拒绝 / 开发客户端守卫 / 人工确认
 4. 技能可见可加载（dev-write/translate-workflow 等）
-5. 多模型（llm-pi-ai 8 provider）Web 模型页可切换
+5. 模型直接复用 DSH 配置（Web 模型页可选 provider/模型）
 6. MCP 工具 `mcp__<server>__<tool>` 出现
 7. headless 单次问答可用（已实测）
 8. 全部单测通过；安装器幂等可重复

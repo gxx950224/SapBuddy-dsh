@@ -42,14 +42,15 @@ node scripts/install.mjs               # 安装插件到 web profile、复制 pr
 ```
 
 安装器会：把 `sapbuddy-tools` / `sapbuddy-settings` / `sapbuddy-settings-ui` 装进 web profile、
-复制 preset 到 `~/.dsh/.agent-presets/sapbuddy/`、生成 `llm-pi-ai` 多模型段、写 API Key 到凭据。
+复制 preset 到 `~/.dsh/.agent-presets/sapbuddy/`。**不配置模型/凭据**——模型直接复用 DSH 自身配置（Web 设置 → 模型页选择 provider/模型并填 key）。
 
 然后：
 
-1. 填写 SAP 连接：编辑 `~/.dsh/.agent-presets/sapbuddy/connections.json`
+1. 模型：直接复用 DSH 配置（Web 设置 → 模型页选 provider/模型，需要时填 key）
+2. 填写 SAP 连接：编辑 `~/.dsh/.agent-presets/sapbuddy/connections.json`
    （参考仓库 `preset/connections.example.json`；ADT 需在 SICF 激活 `/sap/bc/adt`）；
-2. 启动：`dsh web` → 浏览器打开 → 侧边栏选择 **SapBuddy** preset → 开始会话；
-3. 单次问答：`dsh --profile headless --patch <sapbuddy-dsh>/overlays/headless.sapbuddy.yml "解释 ZPPR006"`
+3. 启动：`dsh web` → 浏览器打开 → 侧边栏选择 **SapBuddy** preset → 开始会话；
+4. 单次问答：`dsh --profile headless --patch <sapbuddy-dsh>/overlays/headless.sapbuddy.yml "解释 ZPPR006"`
    （headless 需先 `dsh plugin --profile headless add sapbuddy-tools`）。
 
 恢复：设置页出问题可 `node scripts/recover.mjs`（只移除 sapbuddy 设置行，**保留**你在
@@ -92,7 +93,7 @@ export NODE_TLS_REJECT_UNAUTHORIZED=0
 | 2 | 注册适配层（zod→spec + ctx.tools.register） | ✅ |
 | 3 | 写门禁（guard + ask 门 + 授权窗口 + 知识库只读） | ✅ |
 | 4 | agent preset（persona + skills 挂载 + standingKeyFor） | ✅ |
-| 5 | 模型/凭据配置 + 安装器 | ✅ |
+| 5 | 安装器（插件/preset，模型复用 DSH） | ✅ |
 | 6 | headless overlay + 文档 + 端到端验证 | ✅ |
 
 ## 开发
