@@ -1,6 +1,6 @@
 {
   "name": "sapbuddy-settings-ui",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "description": "SapBuddy SAP 连接设置页（客户端 UI）——注册 DSH 设置界面 settings.section，经 sapbuddy-settings 的同源 HTTP API 读写连接配置",
   "type": "module",
   "main": "lib/index.js",

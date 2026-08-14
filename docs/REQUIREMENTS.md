@@ -71,12 +71,8 @@ DSH 设置界面新增 "SAP 连接" 页：多连接 CRUD + 切换启用 + 测试
   工具层强制"切换后先 get_connected_systems 重确认"）
 - 组合：两个行均位于 **web profile 的用户 patch 层**（`- insert:` 块；安装器追加），非 preset 内
 
-## MCP 服务器管理（2026-08 补充决策 D7）
-沿用 D3（DSH 原生 dsh-mcp-client 静态接入），新增设置页管理：
-- 存储：`<preset>/mcp.json`（mcp-store.ts，CRUD + 校验 + headers），与连接配置同模式
-- 宿主 API（sapbuddy-settings）：`/api/sapbuddy/mcp*`（list/upsert/delete/test/generate）
-- 客户端：设置页新增 "MCP 服务器" 小节（列表/表单/测试/一键生成）
-- 接入机制：`appendMcpToHomePatch` 把服务器转成 dsh-mcp-client 行写入
-  **home 级 patch（~/.dsh/cordis.patch.yml，对所有 profile 生效）** → 重启后 MCP 工具以
-  `mcp__<server>__<tool>` 在任意会话/preset 可用（"配置一次，全部可用"）
-- mcp2dsh.mjs 重构为共享 store 的 CLI 薄封装
+## MCP（2026-08 决策 D7 撤回）
+设置页 MCP 管理已移除（用户改由 DSH 内置方式配置）：
+在 `~/.dsh/cordis.patch.yml`（home 层，对所有 profile 生效）手写 `- insert:` 块，
+重启后 MCP 工具以 `mcp__<server>__<tool>` 在任意会话可用。自签名证书需在启动环境
+`export NODE_TLS_REJECT_UNAUTHORIZED=0`。技能里的旧命名（mcp_）已适配为 mcp__。

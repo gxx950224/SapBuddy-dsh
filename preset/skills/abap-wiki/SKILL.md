@@ -1,7 +1,7 @@
 ---
 name: abap-wiki
 description: >-
-  当 `mcp_abap_wiki_*` 工具可用（用户已在设置-MCP 配置了 abap_wiki 知识库服务）
+  当 `mcp__abap_wiki__*` 工具可用（用户已在设置-MCP 配置了 abap_wiki 知识库服务）
   且用户询问某个 SAP 对象（程序/表/函数模块/类/CDS 视图/增强/事务码等）的用途、
   业务逻辑、解释/分析、依赖、影响面时触发本技能。优先于读原始源码：
   从 abap_wiki 知识库（公司 S/4HANA 开发系统自开发对象的已分析资料，页面英文）
@@ -27,14 +27,14 @@ CDS 视图等）的技术知识库。页面内容全部是**英文**。每个对
 
 ## 前置条件
 
-- `mcp_abap_wiki_*` 工具已注册（用户已在设置-MCP 配置 abap_wiki 服务，底层为
+- `mcp__abap_wiki__*` 工具已注册（用户已在设置-MCP 配置 abap_wiki 服务，底层为
   obsidian-vault-mcp，端口 8766）。浏览动作**一律用下面这些工具**：
-  - `mcp_abap_wiki_list_notes(path)`：列出某目录下的笔记/子目录（非递归），用于浏览目录结构
-  - `mcp_abap_wiki_search_notes(folder/text/tag/...)`：按目录/全文/标签找对象，返回路径
-  - `mcp_abap_wiki_read_note(path)`：读单页完整内容
-  - `mcp_abap_wiki_read_multiple_notes(paths, metadataOnly)`：批量读多页；`metadataOnly:true`
+  - `mcp__abap_wiki__list_notes(path)`：列出某目录下的笔记/子目录（非递归），用于浏览目录结构
+  - `mcp__abap_wiki__search_notes(folder/text/tag/...)`：按目录/全文/标签找对象，返回路径
+  - `mcp__abap_wiki__read_note(path)`：读单页完整内容
+  - `mcp__abap_wiki__read_multiple_notes(paths, metadataOnly)`：批量读多页；`metadataOnly:true`
     只返回 frontmatter/链接，用来看一批页面的 `doc_level` 再决定精读哪些（省 token）
-- ⚠️ **知识库只读**：只使用上面 4 个读/浏览工具。**禁止**调用 `mcp_abap_wiki_` 的写工具
+- ⚠️ **知识库只读**：只使用上面 4 个读/浏览工具。**禁止**调用 `mcp__abap_wiki__` 的写工具
   （`create_note`/`append_to_note`/`update_note`/`patch_note`/`delete_note`/`rename_note`）——
   知识库由 abap_wiki 引擎生成维护，AI 不得修改。若用户要求改 wiki，直接说明"知识库只读，
   不做修改"。

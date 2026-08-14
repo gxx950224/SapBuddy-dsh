@@ -7,7 +7,6 @@
  *   2. 复制 preset → ~/.dsh/.agent-presets/sapbuddy/
  *   3. 生成 settings.yaml 的 llm-pi-ai 多模型段（deepseek/qwen/moonshot/zhipu/doubao/minimax/hunyuan/ernie）
  *   4. 写 API Key 到 ~/.dsh/.credentials.yaml（环境变量或交互输入）
- *   5. 若存在 ~/.SapBuddy/mcp.json，调用 mcp2dsh.mjs 转成 dsh-mcp-client 行
  *
  * 用法：
  *   node scripts/install.mjs                 # 默认 web profile，file: 安装
@@ -53,7 +52,7 @@ function parseArgs(argv) {
   const opts = {
     profile: "web",
     source: "file",
-    skipPlugin: false, skipPreset: false, skipModels: false, skipCredentials: false, skipMcp: false,
+    skipPlugin: false, skipPreset: false, skipModels: false, skipCredentials: false,
     force: false, yes: false, dryRun: false,
   }
   for (let i = 0; i < argv.length; i++) {
@@ -64,7 +63,6 @@ function parseArgs(argv) {
     else if (a === "--skip-preset") opts.skipPreset = true
     else if (a === "--skip-models") opts.skipModels = true
     else if (a === "--skip-credentials") opts.skipCredentials = true
-    else if (a === "--skip-mcp") opts.skipMcp = true
     else if (a === "--force") opts.force = true
     else if (a === "--yes") opts.yes = true
     else if (a === "--dry-run") opts.dryRun = true
@@ -154,8 +152,8 @@ async function main() {
         fs.cpSync(PRESET_SRC, PRESET_DST, { recursive: true })
       }
     }
-    // 配置种子/迁移：connections.json / settings.json / mcp.json 缺失时生成（旧版 ~/.SapBuddy 一次性迁移）
-    console.log("[2b] 配置收口：在 preset 目录生成/迁移 connections.json / settings.json / mcp.json")
+    // 配置种子/迁移：connections.json / settings.json 缺失时生成（旧版 ~/.SapBuddy 一次性迁移）
+    console.log("[2b] 配置收口：在 preset 目录生成/迁移 connections.json / settings.json")
     const seedFrom = (name, example, legacy) => {
       const dst = path.join(PRESET_DST, name)
       if (fs.existsSync(dst)) return `已有`
@@ -170,11 +168,9 @@ async function main() {
     }
     const legacyConn = path.join(os.homedir(), ".SapBuddy", "connections.json")
     const legacySet = path.join(os.homedir(), ".SapBuddy", "settings.json")
-    const legacyMcp = path.join(os.homedir(), ".SapBuddy", "mcp.json")
     if (!opts.dryRun) fs.mkdirSync(PRESET_DST, { recursive: true })
     console.log(`  connections.json: ${seedFrom("connections.json", "connections.example.json", legacyConn)}`)
     console.log(`  settings.json:    ${seedFrom("settings.json", "settings.example.json", legacySet)}`)
-    console.log(`  mcp.json:         ${seedFrom("mcp.json", undefined, legacyMcp)}`)
     for (const sub of ["logs", "output", "uploads"]) {
       if (!opts.dryRun) fs.mkdirSync(path.join(PRESET_DST, sub), { recursive: true })
     }
@@ -233,18 +229,6 @@ async function main() {
     }
   }
 
-  // 5) MCP
-  if (!opts.skipMcp) {
-    console.log("[5/5] MCP 转换（~/.SapBuddy/mcp.json → dsh-mcp-client 行）")
-    const mcp2dsh = path.join(HERE, "mcp2dsh.mjs")
-    if (fs.existsSync(path.join(os.homedir(), ".SapBuddy", "mcp.json"))) {
-      const r = run(process.execPath, [mcp2dsh, ...(opts.dryRun ? ["--dry-run"] : [])])
-      if (r.status !== 0) console.log("[install] mcp2dsh 执行失败（可 --skip-mcp 跳过）")
-    } else {
-      console.log("[install] 未发现 ~/.SapBuddy/mcp.json，跳过")
-    }
-  }
-
   console.log(`
 [install] 完成 ✔ 下一步：
   1. 填写 SAP 连接：${path.join(PRESET_DST, "connections.json")}
@@ -252,7 +236,7 @@ async function main() {
   2. 启动：dsh web → 浏览器打开 → 侧边栏选择 "SapBuddy" preset → 开始会话
   3. 单次问答：dsh --profile headless --patch <sapbuddy-dsh>/overlays/headless.sapbuddy.yml "解释 ZPPR006"
   （headless 需先：dsh plugin --profile headless add sapbuddy-tools）
-  SapBuddy 全部配置已集中于 preset 目录（connections/settings/mcp/logs/output/uploads），不再使用 ~/.SapBuddy。`)
+  SapBuddy 配置集中于 preset 目录（connections/settings/logs/output/uploads），不再使用 ~/.SapBuddy。`)
 }
 
 await main()

@@ -25,7 +25,7 @@ disable: false
 
 ## 编码规范（默认：SAP 官方 Clean ABAP）
 
-**默认开发规范采用 SAP 官方 Clean ABAP 风格指南**（Clean Code for ABAP，源自 Robert C. Martin《Clean Code》），技能见 `~/.SapBuddy/skills/clean-abap/`（含 4300+ 行中文指南 `references/CleanABAP_zh.md`）。
+**默认开发规范采用 SAP 官方 Clean ABAP 风格指南**（Clean Code for ABAP，源自 Robert C. Martin《Clean Code》），技能见 clean-abap（用 skill 工具加载；含 4300+ 行中文指南 references/CleanABAP_zh.md）。
 
 核心规则（默认生效）：
 

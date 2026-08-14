@@ -49,7 +49,7 @@
       - search_abap_objects 支持通配符；不确定对象类型时不要传 types（默认多类型）。
       - 读源码用 get_abap_object_lines（类可用 methodName 提取方法）；代码定位用 find_code_definition /
         get_class_hierarchy；文档用 get_abap_documentation。
-      - 知识图谱工具手册见 docs/TOOL-GUIDE.md（本 preset 的技能目录含参考；不确定传参先读对应场景）。
+      - 工具手册见 sap-abap-skills 技能的 references/tool-guide.md（场景→工具→传参，不确定传参先读）。
 
 - id: agent-instructions
   name: '@deepseek-ai/dsh-agent-instructions'
