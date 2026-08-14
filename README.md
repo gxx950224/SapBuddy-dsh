@@ -1,10 +1,9 @@
 # SapBuddy × DeepSeek Harness
 
-SapBuddy 的 DSH 底座版：以 **DeepSeek Harness**（DSH）为 Agent 运行时，替代原
-`@earendil-works/pi-coding-agent`（pi）。41 个 SAP 工具、技能集、写门禁等核心价值
-以 **Cordis 工具插件 + agent preset** 的形态嵌入 DSH。
+SapBuddy 的 **DeepSeek Harness（DSH）** 底座版：41 个 SAP 工具、技能集、写门禁等核心价值
+以 **Cordis 工具插件 + agent preset** 的形态嵌入 DSH，通过 Web GUI 与 headless 单次问答使用。
 
-> 需求与实施路径见 `docs/`（需求文档 v1.0 已获批）。
+> 需求与实施路径见 `docs/`。
 
 ## 仓库结构
 
@@ -13,7 +12,7 @@ sapbuddy-dsh/
 ├── packages/
 │   ├── sapbuddy-tools/        # 41 个 SAP 工具（vendored from SapBuddy）+ DSH 注册层 + 写门禁 + 连接存储
 │   │   ├── src/sap-tools/     # 业务实现（tools/、adtManager、config、taskTransport、auditLog、register、gate…）
-│   │   └── test/              # 工具层 + 转换器 + 插件加载 + 门禁 + 连接存储单测（191 用例）
+│   │   └── test/              # 工具层 + 转换器 + 插件加载 + 门禁 + 连接存储单测（170 用例全绿）
 │   ├── sapbuddy-settings/     # DSH 设置宿主 API：webServer 路由（SAP 连接管理）
 │   │   └── src/index.ts       #   （list/upsert/activate/delete/test，inject:['webServer']）
 │   └── sapbuddy-settings-ui/  # DSH 设置界面 "SAP 连接" 页（客户端 settings.section）
@@ -22,46 +21,86 @@ sapbuddy-dsh/
 ├── overlays/
 │   └── headless.sapbuddy.yml  # headless 单次问答 overlay
 ├── scripts/
-│   ├── install.mjs            # 一键安装器（插件/preset/配置收口/模型/凭据/MCP）
-│   └── mcp2dsh.mjs            # mcp.json（preset 目录）→ dsh-mcp-client 配置行
+│   ├── install.mjs            # 一键安装器（构建/插件/preset/配置收口/模型/凭据）
+│   └── recover.mjs            # 恢复脚本（仅移除 sapbuddy 设置行，保留用户其他自定义行）
 ├── docs/
-│   ├── REQUIREMENTS.md        # 需求文档 v1.0（已获批）
+│   ├── REQUIREMENTS.md        # 需求文档 v1.0
 │   └── SYNC.md                # 与上游 SapBuddy 的同步工作流
 └── test/                      # (后续) 集成测试
 ```
 
-> **配置自包含**：SapBuddy 的一切配置（connections/settings/mcp/logs/output/uploads）收口在
+> **配置自包含**：SapBuddy 的一切配置（connections/settings/logs/output/uploads）与提示词（prompts/SYSTEM.md、AGENTS.md、prompts/Memory.md，随会话注入）收口在
 > 已安装 preset 目录 `~/.dsh/.agent-presets/sapbuddy/`，随 preset 一起分发/升级；工具层经
 > `sapbuddy-home.ts`（`SAPBUDDY_HOME` 可覆盖）解析，不再使用 `~/.SapBuddy`（安装器负责一次性迁移）。
 
-## 阶段进度
-
-| 阶段 | 内容 | 状态 |
-|---|---|---|
-| 0 | 机制验证（动态插件 + headless 物化） | ✅ 通过 |
-| 1 | 仓库骨架 + 工具源码移植 + 原测试跑绿 | ✅ 168/168 |
-| 2 | 注册适配层（zod→spec + ctx.tools.register） | ✅ 177/177 |
-| 3 | 写门禁（guard + ask 门 + 授权窗口） | ✅ 186/186 |
-| 4 | agent preset（persona + skills 挂载 + standingKeyFor） | ✅ mounted OK |
-| 5 | 模型/凭据/MCP 配置 + 安装器 | ✅ |
-| 6 | headless overlay + 文档 + 端到端验证 | ✅ headless 实测通过 |
-
-## 开发
+## 安装（快速开始）
 
 ```bash
-pnpm install --store-dir /tmp/pnpm-store   # 沙箱内需本地 store；正常环境直接 pnpm install
-# dev 依赖解析：@deepseek-ai/dsh-tools / @deepseek-ai/cordis 取自本地 DSH 安装（npm 版本过旧）
-#   （node_modules 中为 symlink，不入库；npm 发布正确版本后改为普通 devDependency）
-pnpm -r build
-pnpm -r test
+git clone https://github.com/gxx950224/sapbuddy-dsh.git && cd sapbuddy-dsh
+pnpm install && pnpm -r build          # 全新 clone 需要先构建（dist 不入库）
+node scripts/install.mjs               # 安装插件到 web profile、复制 preset、seed 模型/凭据
 ```
 
-## MCP 自签名证书（重要）
-SAP 内网 MCP 端点通常用自签名证书，而 DSH 的 dsh-mcp-client 经 MCP SDK 的 fetch 连接，
+安装器会：把 `sapbuddy-tools` / `sapbuddy-settings` / `sapbuddy-settings-ui` 装进 web profile、
+复制 preset 到 `~/.dsh/.agent-presets/sapbuddy/`、生成 `llm-pi-ai` 多模型段、写 API Key 到凭据。
+
+然后：
+
+1. 填写 SAP 连接：编辑 `~/.dsh/.agent-presets/sapbuddy/connections.json`
+   （参考仓库 `preset/connections.example.json`；ADT 需在 SICF 激活 `/sap/bc/adt`）；
+2. 启动：`dsh web` → 浏览器打开 → 侧边栏选择 **SapBuddy** preset → 开始会话；
+3. 单次问答：`dsh --profile headless --patch <sapbuddy-dsh>/overlays/headless.sapbuddy.yml "解释 ZPPR006"`
+   （headless 需先 `dsh plugin --profile headless add sapbuddy-tools`）。
+
+恢复：设置页出问题可 `node scripts/recover.mjs`（只移除 sapbuddy 设置行，**保留**你在
+patch 里的其他自定义行）。
+
+## MCP（可选）
+
+MCP 服务器由你直接在 **DSH 内置 dsh-mcp-client** 配置（在 `~/.dsh/profiles/web/cordis.patch.yml`
+加一个 `- insert:` 行），注册的工具名为 `mcp__<server>__<tool>`（双下划线）。本仓库**不提供**
+程序化写 MCP 配置的代码。示例：
+
+```yaml
+- insert:
+    - id: mcp-sap-mcp-dev
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: sap_mcp_dev
+        transport: streamable-http
+        url: https://<host>:44300/sap/bc/zsx_intf_serv/zsx_mcp?sap-client=100
+        headers:
+          X-API-Key: "<key>"
+```
+
+### MCP 自签名证书（重要）
+SAP 内网 MCP 端点通常用自签名证书，而 dsh-mcp-client 经 MCP SDK 的 fetch 连接，
 默认 TLS 会拒绝（`DEPTH_ZERO_SELF_SIGNED_CERT`）→ 连接失败、**MCP 工具不出现**（静默，无报错）。
 解决：在**启动环境**放开 TLS 校验（`.env` 缝被 DSH 安全策略拒绝，只能在启动环境设）：
 ```bash
 # ~/.zshrc 加一行（或每次启动前缀）
 export NODE_TLS_REJECT_UNAUTHORIZED=0
 ```
-更安全：导出 SAP 证书并用 `NODE_EXTRA_CA_CERTS=/path/sap-cert.pem`（只信任该证书）。
+更安全：导出 SAP 证书并用 `NODE_EXTRA_CA_CERTS=/path/sap-cert.pem`（只信任该证书，验证保持开启）。
+
+## 阶段进度
+
+| 阶段 | 内容 | 状态 |
+|---|---|---|
+| 0 | 机制验证（动态插件 + headless 物化） | ✅ |
+| 1 | 仓库骨架 + 工具源码移植 + 原测试跑绿 | ✅ |
+| 2 | 注册适配层（zod→spec + ctx.tools.register） | ✅ |
+| 3 | 写门禁（guard + ask 门 + 授权窗口 + 知识库只读） | ✅ |
+| 4 | agent preset（persona + skills 挂载 + standingKeyFor） | ✅ |
+| 5 | 模型/凭据配置 + 安装器 | ✅ |
+| 6 | headless overlay + 文档 + 端到端验证 | ✅ |
+
+## 开发
+
+```bash
+pnpm install          # 正常环境直接安装（沙箱内可 --store-dir 指定本地 store）
+# dev 依赖解析：@deepseek-ai/dsh-tools / @deepseek-ai/cordis 为 peerDependencies，
+# 由 DSH profile 运行时提供；本地开发经 pnpm auto-install-peers=false + symlink 指向本机 DSH 安装
+pnpm -r build
+pnpm -r test          # sapbuddy-tools：170 用例（门禁/转换器/插件加载/连接存储）全绿
+```

@@ -1,7 +1,7 @@
 ---
 name: abap-wiki
 description: >-
-  当 `mcp__abap_wiki__*` 工具可用（用户已在设置-MCP 配置了 abap_wiki 知识库服务）
+  当 `mcp__abap_wiki__*` 工具可用（用户已在 DSH 配置 dsh-mcp-client 接入 abap_wiki 知识库服务）
   且用户询问某个 SAP 对象（程序/表/函数模块/类/CDS 视图/增强/事务码等）的用途、
   业务逻辑、解释/分析、依赖、影响面时触发本技能。优先于读原始源码：
   从 abap_wiki 知识库（公司 S/4HANA 开发系统自开发对象的已分析资料，页面英文）
@@ -27,7 +27,7 @@ CDS 视图等）的技术知识库。页面内容全部是**英文**。每个对
 
 ## 前置条件
 
-- `mcp__abap_wiki__*` 工具已注册（用户已在设置-MCP 配置 abap_wiki 服务，底层为
+- `mcp__abap_wiki__*` 工具已注册（用户已在 DSH 配置 dsh-mcp-client 接入 abap_wiki 服务，底层为
   obsidian-vault-mcp，端口 8766）。浏览动作**一律用下面这些工具**：
   - `mcp__abap_wiki__list_notes(path)`：列出某目录下的笔记/子目录（非递归），用于浏览目录结构
   - `mcp__abap_wiki__search_notes(folder/text/tag/...)`：按目录/全文/标签找对象，返回路径

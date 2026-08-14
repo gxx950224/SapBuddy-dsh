@@ -2,8 +2,8 @@
  * 连接配置加载：支持多 SAP 系统、${ENV} 环境变量展开（secret manager 友好）
  *
  * 配置文件示例见 connections.example.json
- * 可通过环境变量 ABAP_MCP_CONFIG 指定配置文件路径，
- * 默认读取 ~/.SapBuddy/connections.json（兼容旧版项目根 connections.json）
+ * 可通过环境变量 ABAP_MCP_CONFIG 指定配置文件路径（历史命名，兼容保留），
+ * 默认读取 preset 配置目录 connections.json（<DSH_HOME|~/.dsh>/.agent-presets/sapbuddy/connections.json）
  */
 import { readFileSync, existsSync } from "node:fs"
 import { resolve } from "node:path"

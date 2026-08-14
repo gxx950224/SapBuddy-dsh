@@ -111,12 +111,12 @@ export const adtDiscoveryTool = {
   },
 }
 
-// ─── abap_fs_documentation（本项目文档查询）────────────────────────────────
+// ─── abap_fs_documentation（SapBuddy 内置工具文档查询；名称保留自上游兼容）────────────────
 export const documentationTool = {
   name: "abap_fs_documentation",
-  title: "ABAP ADT MCP Documentation",
+  title: "SapBuddy 工具文档",
   description:
-    "查询本 MCP 服务的工具文档与使用说明。不访问 SAP。当你不知道某个工具怎么用、或需要了解可用能力时，先调用本工具。",
+    "查询 SapBuddy 内置 SAP 工具（41 个）的文档与使用说明。不访问 SAP。当你不知道某个工具怎么用、或需要了解可用能力时，先调用本工具。",
   inputSchema: z.object({
     topic: z
       .string()
@@ -126,39 +126,13 @@ export const documentationTool = {
   async execute(args: { topic?: string }): Promise<string> {
     const topic = (args.topic ?? "all").toLowerCase()
     if (topic.includes("tool") || topic.includes("list")) {
+      // 工具清单从注册表动态生成，避免静态清单漏工具
+      const { tools } = await import("./index.js")
       return (
-        "可用工具:\n" +
-        "1. get_connected_systems - 列出可用 SAP 连接\n" +
-        "2. search_abap_objects - 按名称搜索对象\n" +
-        "3. get_abap_object_lines - 读对象源码\n" +
-        "4. search_abap_object_lines - 源码内搜索\n" +
-        "5. get_abap_object_info - 对象元数据\n" +
-        "6. get_batch_lines - 批量读源码\n" +
-        "7. get_object_by_uri - 按 URI 读源码\n" +
-        "8. get_abap_object_workspace_uri - 获取 adt:// URI\n" +
-        "9. get_abap_object_url - WebGUI URL\n" +
-        "10. find_where_used - where-used 分析\n" +
-        "11. run_unit_tests - 运行单元测试\n" +
-        "12. run_atc_analysis - ATC 代码检查\n" +
-        "13. execute_data_query - SQL 查询（只读）\n" +
-        "14. get_abap_sql_syntax - SQL 语法参考\n" +
-        "15. manage_transport_requests - 传输请求\n" +
-        "16. manage_text_elements - 文本元素\n" +
-        "17. analyze_abap_dumps - ST22 dump 分析\n" +
-        "18. analyze_abap_traces - 性能追踪分析\n" +
-        "19. get_version_history - 版本历史\n" +
-        "20. get_sap_system_info - 系统信息\n" +
-        "21. adt_discovery_export - ADT 服务发现\n" +
-        "22. create_mermaid_diagram / validate_mermaid_syntax / get_mermaid_documentation / detect_mermaid_diagram_type - Mermaid 图表\n" +
-        "23. create_object_programmatically / abap_activate / replace_string_in_abap_object / create_test_include - 写操作（需 readOnly=false）\n" +
-        "24. get_abap_diagnostics - 语法检查\n" +
-        "25. read_table_contents - 直接读表（不用写 SQL，限行数，只读）\n" +
-        "26. find_code_definition - 定位标识符定义处\n" +
-        "27. get_class_hierarchy - 类的父/子继承结构\n" +
-        "28. get_abap_documentation - 查询 ABAP 帮助文档\n" +
-        "29. find_where_used(includeSnippets=true) - 引用分析带代码片段\n" +
-        "30. get_abap_object_info(includeStructure=true) - 类组件/表字段清单\n" +
-        "31. analyze_abap_traces(statements/db_access) - 追踪语句与DB访问明细"
+        "可用工具（共 " + tools.length + " 个，标记（写）的需 readOnly=false）:\n" +
+        tools
+          .map((t, i) => `${i + 1}. ${t.name}${t.write ? "（写）" : ""} - ${String(t.description ?? "").slice(0, 70)}`)
+          .join("\n")
       )
     }
     if (topic.includes("edit")) {
@@ -193,7 +167,7 @@ export const documentationTool = {
       )
     }
     return (
-      "ABAP ADT MCP 服务：通过 ADT 协议连接 SAP，为 AI Agent 提供 ABAP 开发能力。\n" +
+      "SapBuddy 41 个 SAP 工具：通过 ADT 协议连接 SAP，为 AI Agent 提供 ABAP 开发能力。\n" +
       "可用主题: tools(工具列表), edit(编辑流程), query(查询), security(权限)。\n" +
       "典型用法: 搜索对象 -> 读源码 -> where-used 分析 -> 修改 -> 激活。"
     )

@@ -9,12 +9,14 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist/"
+    "dist/",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
-    "test": "node --test test/",
-    "check": "tsc --noEmit"
+    "build": "rm -rf dist && tsc",
+    "check": "tsc --noEmit",
+    "prepack": "rm -rf dist && tsc"
   },
   "keywords": [
     "sap",

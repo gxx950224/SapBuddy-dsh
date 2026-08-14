@@ -6,7 +6,7 @@ import assert from "node:assert/strict"
 import { createRequire } from "node:module"
 
 const require = createRequire(import.meta.url)
-const { decideWriteApproval, extractUserText, installWriteGate } = require("../dist/sap-tools/gate.js")
+const { decideWriteApproval, extractUserText, installWriteGate, wikiWriteViolation } = require("../dist/sap-tools/gate.js")
 const { isWriteTool, setWriteApprovalWindow, clearWriteApproval, isWriteApproved, handleUserMessage } = require("../dist/sap-tools/register.js")
 
 const base = { toolName: "create_object_programmatically", args: { name: "ZTEST01" }, readOnly: false, connectionDirty: false, windowApproved: false }
@@ -127,4 +127,40 @@ test("isWriteTool 覆盖写工具清单", () => {
   assert.ok(writeTools.length > 0)
   for (const t of writeTools) assert.equal(isWriteTool(t.name), true)
   for (const t of tools.filter((x) => !x.write)) assert.equal(isWriteTool(t.name), false)
+})
+
+test("wikiWriteViolation：abap_wiki 写工具（双下划线命名）一律拦截", () => {
+  for (const name of ["mcp__abap_wiki__create_note", "mcp__abap_wiki__update", "mcp__abap_wiki__append", "mcp__abap_wiki__delete_note", "mcp__abap_wiki__patch"]) {
+    const r = wikiWriteViolation(name)
+    assert.ok(r, `${name} 应被拦截`)
+    assert.match(r, /只读参考/)
+  }
+})
+
+test("wikiWriteViolation：只读/其他 MCP 服务器不误拦", () => {
+  assert.equal(wikiWriteViolation("mcp__abap_wiki__read"), undefined)
+  assert.equal(wikiWriteViolation("mcp__abap_wiki__search"), undefined)
+  assert.equal(wikiWriteViolation("mcp__abap_wiki__list"), undefined)
+  // 其他 MCP 服务器（如 SAP 工具服务器）不受知识库只读影响
+  assert.equal(wikiWriteViolation("mcp__sap_mcp_dev__GET_TCODE_INFO"), undefined)
+  assert.equal(wikiWriteViolation("mcp__sap_mcp_dev__ABAP_DOWNLOAD"), undefined)
+  // 旧单下划线命名（不存在于 DSH）不匹配
+  assert.equal(wikiWriteViolation("mcp_abap_wiki_create"), undefined)
+})
+
+test("安装集成：guard 对 abap_wiki 写工具直接 deny（窗口已开也不放行）", () => {
+  const handlers = {}
+  const ctx = {
+    get: (name) => (name === "tools" ? { guard: (fn) => { handlers.guard = fn; return () => {} } } : undefined),
+    on: (name, fn) => { handlers[name] = fn; return () => {} },
+  }
+  installWriteGate(ctx, {
+    isReadOnly: () => false,
+    isConnectionDirty: () => false,
+    isWriteApproved: () => true, // 即使授权窗口已开，知识库只读仍硬拦截
+    handleUserMessage: () => {},
+  })
+  const r = handlers.guard({ name: "mcp__abap_wiki__create_note", arguments: {} })
+  assert.ok(r, "wiki 写工具应被 guard 硬拦截")
+  assert.match(r, /只读参考/)
 })

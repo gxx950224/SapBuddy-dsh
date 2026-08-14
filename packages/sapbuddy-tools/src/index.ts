@@ -11,6 +11,7 @@ import { defineTool } from "@deepseek-ai/dsh-tools"
 import { tools, type ToolDef } from "./sap-tools/tools/index.js"
 import { zodToParameterSpec } from "./sap-tools/zod-to-spec.js"
 import { installWriteGate } from "./sap-tools/gate.js"
+import { installPromptFiles } from "./sap-tools/prompt-files.js"
 import { scanCodeViolations, extractObjectNames } from "./sap-tools/register.js"
 import { isConnectionDirty, assertDevClient, withConnMutex } from "./sap-tools/adtManager.js"
 import { resolveConnectionId } from "./sap-tools/tools/shared.js"
@@ -108,8 +109,10 @@ export function apply(ctx: { get: (name: string) => unknown; on: (name: string, 
   }
   // 写门禁三层结构（guard + pre-execute ask + 确认词窗口）
   disposers.push(...installWriteGate(ctx))
+  // 额外提示词注入（prompts/SYSTEM.md、AGENTS.md、prompts/Memory.md —— 每次会话实时读取）
+  disposers.push(...installPromptFiles(ctx))
   // eslint-disable-next-line no-console
-  console.log(`[sapbuddy-tools] 已注册 ${registeredCount} 个 SAP 工具 + 写门禁`)
+  console.log(`[sapbuddy-tools] 已注册 ${registeredCount} 个 SAP 工具 + 写门禁 + 提示词注入`)
   ctx.effect(() => () => {
     for (const d of disposers) {
       try { d() } catch { /* 卸载失败不影响其余 */ }

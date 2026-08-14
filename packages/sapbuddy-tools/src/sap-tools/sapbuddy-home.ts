@@ -1,9 +1,10 @@
 /**
  * SapBuddy 配置根目录（自包含解析）
  *
- * 所有配置（connections.json / settings.json / mcp.json / logs / output / uploads）
+ * 所有配置（connections.json / settings.json / logs / output / uploads）
  * 统一收口到 DSH 的 agent preset 目录，随 preset 一起分发、一起升级，不再散落
- * 在 ~/.SapBuddy 多处。
+ * 在 ~/.SapBuddy 多处。（MCP 服务器配置由 DSH 内置 dsh-mcp-client 在 profile patch
+ * 管理，不在本目录内。）
  *
  * 解析顺序：
  *   1. SAPBUDDY_HOME 环境变量（显式指定，如便携部署）

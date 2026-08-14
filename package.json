@@ -2,7 +2,7 @@
   "name": "sapbuddy-dsh",
   "version": "0.1.0",
   "private": true,
-  "description": "SapBuddy on DeepSeek Harness — 41 个 SAP 工具作为 DSH 工具插件 + agent preset（以 DSH 底座替代 pi-coding-agent）",
+  "description": "SapBuddy on DeepSeek Harness — 41 个 SAP 工具作为 DSH 工具插件 + agent preset",
   "license": "MIT",
   "workspaces": [
     "packages/*"

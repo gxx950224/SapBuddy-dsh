@@ -1,6 +1,3 @@
 {
-  "defaultProvider": "deepseek",
-  "defaultModel": "deepseek-v4-flash",
-  "defaultThinkingLevel": "off",
-  "contextTokens": 200000
+  "approvalWindowMinutes": 15
 }

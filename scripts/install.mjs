@@ -3,14 +3,16 @@
  * sapbuddy-dsh 一键安装器：把 SapBuddy 集成进本机 DeepSeek Harness
  *
  * 做什么：
- *   1. 安装 sapbuddy-tools 插件到指定 profile（dsh plugin add）
+ *   0. 构建前置：三个包的 dist/ 缺失时自动 pnpm -r build（全新 clone 无 dist）
+ *   1. 安装 sapbuddy-tools / sapbuddy-settings / sapbuddy-settings-ui 插件到指定 profile（dsh plugin add）
  *   2. 复制 preset → ~/.dsh/.agent-presets/sapbuddy/
  *   3. 生成 settings.yaml 的 llm-pi-ai 多模型段（deepseek/qwen/moonshot/zhipu/doubao/minimax/hunyuan/ernie）
  *   4. 写 API Key 到 ~/.dsh/.credentials.yaml（环境变量或交互输入）
  *
  * 用法：
- *   node scripts/install.mjs                 # 默认 web profile，file: 安装
- *   node scripts/install.mjs --source npm    # 从 npm registry 安装 sapbuddy-tools
+ *   node scripts/install.mjs                 # 默认 web profile，file: 安装（推荐，git clone 分发）
+ *   node scripts/install.mjs --source npm    # 从 npm registry 安装（需 3 个包已发布；sapbuddy-settings
+ *                                            #   的依赖须改为 semver 而非 file:，见包 README）
  *   node scripts/install.mjs --profile headless
  *   node scripts/install.mjs --yes           # 非交互（凭据只从环境变量读）
  *   node scripts/install.mjs --dry-run       # 预览不执行
@@ -89,10 +91,46 @@ async function main() {
   opts = parseArgs(process.argv.slice(2))
   console.log(`[install] SapBuddy × DeepSeek Harness 安装器（profile=${opts.profile}, source=${opts.source}）`)
 
+  // 0) 构建前置 + 源校验
+  if (opts.source === "npm") {
+    // npm 源要求 3 个包都已发布到 registry（settings 的依赖也须是 semver 而非 file:）
+    for (const [pkg, ver] of [
+      ["sapbuddy-tools", JSON.parse(fs.readFileSync(path.join(PACKAGE_SRC, "package.json"), "utf8")).version],
+      ["sapbuddy-settings", JSON.parse(fs.readFileSync(SETTINGS_PKG_SRC, "package.json", "utf8")).version],
+      ["sapbuddy-settings-ui", JSON.parse(fs.readFileSync(SETTINGS_UI_PKG_SRC, "package.json", "utf8")).version],
+    ]) {
+      const v = spawnSync("npm", ["view", `${pkg}@${ver}`, "version"], { encoding: "utf8" })
+      if (v.status !== 0 || !v.stdout.trim()) {
+        console.error(`[install] --source npm 需要 ${pkg}@${ver} 已发布到 npm registry，但未找到。`)
+        console.error(`         建议使用默认 git clone + file: 安装（直接运行 node scripts/install.mjs）；`)
+        console.error(`         或先发布 3 个包并把 sapbuddy-settings 的依赖改为 "sapbuddy-tools": "^0.2.7" 再重试。`)
+        process.exit(1)
+      }
+    }
+  } else {
+    // file: 安装要求 dist 已构建（dist 不入库，全新 clone 后为空）
+    const entries = [
+      [PACKAGE_SRC, "dist/index.js"],
+      [SETTINGS_PKG_SRC, "dist/index.js"],
+      [SETTINGS_UI_PKG_SRC, "dist/client.js"],
+    ]
+    const missing = entries.filter(([pkg, rel]) => !fs.existsSync(path.join(pkg, rel)))
+    if (missing.length > 0) {
+      console.log("[0/4] dist 缺失，执行 pnpm -r build 构建 3 个包 ...")
+      const b = spawnSync("pnpm", ["-r", "build"], { cwd: ROOT, stdio: "inherit", shell: process.platform === "win32" })
+      if (b.status !== 0) {
+        console.error("[install] 构建失败：请确认已安装 pnpm 且仓库依赖已就绪（pnpm install），或用 --skip-plugin 跳过插件安装")
+        process.exit(1)
+      }
+    } else {
+      console.log("[0/4] dist 已存在，跳过构建")
+    }
+  }
+
   // 1) 插件
   if (!opts.skipPlugin) {
     const pkgRef = opts.source === "npm" ? "sapbuddy-tools" : `file:${PACKAGE_SRC}`
-    console.log(`[1/5] 安装 sapbuddy-tools → profile "${opts.profile}"（${pkgRef}）...`)
+    console.log(`[1/4] 安装 sapbuddy-tools → profile "${opts.profile}"（${pkgRef}）...`)
     const r = run(DSH_BIN, ["plugin", "--profile", opts.profile, "add", pkgRef])
     if (r.status !== 0 && !opts.dryRun) {
       console.error("[install] 插件安装失败，请检查 pnpm/dsh 环境后重试（--skip-plugin 可跳过）")
@@ -143,13 +181,26 @@ async function main() {
 
   // 2) preset + 配置收口（一切配置自包含于 preset 目录，不再散落 ~/.SapBuddy）
   if (!opts.skipPreset) {
-    console.log(`[2/5] 复制 preset → ${PRESET_DST}`)
+    console.log(`[2/4] 复制 preset → ${PRESET_DST}`)
     if (fs.existsSync(PRESET_DST) && !opts.force) {
       console.log("[install] preset 已存在（--force 覆盖；不覆盖以保留你的修改）")
     } else {
       if (!opts.dryRun) {
         fs.rmSync(PRESET_DST, { recursive: true, force: true })
         fs.cpSync(PRESET_SRC, PRESET_DST, { recursive: true })
+      }
+    }
+    // 提示词同步（老安装升级）：prompts/SYSTEM.md、prompts/Memory.md、AGENTS.md 缺失时补拷。
+    // Memory.md 是用户沉淀文件，已存在时绝不覆盖（cp -n 语义）。
+    if (!opts.dryRun) {
+      for (const rel of ["prompts/SYSTEM.md", "prompts/Memory.md", "AGENTS.md"]) {
+        const src = path.join(PRESET_SRC, rel)
+        const dst = path.join(PRESET_DST, rel)
+        if (fs.existsSync(src) && !fs.existsSync(dst)) {
+          fs.mkdirSync(path.dirname(dst), { recursive: true })
+          fs.copyFileSync(src, dst)
+          console.log(`[2c] 补拷提示词 ${rel} → ${dst}`)
+        }
       }
     }
     // 配置种子/迁移：connections.json / settings.json 缺失时生成（旧版 ~/.SapBuddy 一次性迁移）
@@ -179,10 +230,12 @@ async function main() {
 
   // 3) 模型
   if (!opts.skipModels) {
-    console.log("[3/5] 生成 settings.yaml llm-pi-ai 多模型段")
+    console.log("[3/4] 生成 settings.yaml llm-pi-ai 多模型段")
     const existing = fs.existsSync(SETTINGS) ? fs.readFileSync(SETTINGS, "utf8") : ""
-    if (/^\s*llm-pi-ai\s*:/m.test(existing)) {
-      console.log("[install] settings.yaml 已有 llm-pi-ai 段，跳过（可在 Web 模型页或该文件维护）")
+    const hasSection = /^\s*llm-pi-ai\s*:/m.test(existing)
+    const hasProviderEntries = existing.includes("apiKeyEnv:")
+    if (hasSection && hasProviderEntries) {
+      console.log("[install] settings.yaml 已有 llm-pi-ai 段（含模型），跳过（可在 Web 模型页或该文件维护）")
     } else {
       const lines = ["", "llm-pi-ai:", "  providers:"]
       for (const p of PROVIDERS) {
@@ -196,7 +249,13 @@ async function main() {
       const block = lines.join("\n") + "\n"
       if (opts.dryRun) { console.log(block) } else {
         fs.mkdirSync(path.dirname(SETTINGS), { recursive: true })
-        fs.writeFileSync(SETTINGS, existing.trimEnd() + "\n" + block)
+        // 段已存在但 providers 为空（如 providers: {}）→ 整段替换，避免 YAML 重复键
+        const start = existing.search(/^llm-pi-ai\s*:/m)
+        const rest = existing.slice(start)
+        const m = rest.match(/\n(?=^[A-Za-z0-9_.-]+\s*:)/m)
+        const end = m ? start + m.index + 1 : existing.length
+        const next = hasSection ? existing.slice(0, start) + block.trimEnd() + existing.slice(end) : existing.trimEnd() + "\n" + block
+        fs.writeFileSync(SETTINGS, next)
         console.log("[install] 已写入 llm-pi-ai 段 → " + SETTINGS)
       }
     }
@@ -204,7 +263,7 @@ async function main() {
 
   // 4) 凭据
   if (!opts.skipCredentials) {
-    console.log("[4/5] API Key 凭据 → ~/.dsh/.credentials.yaml")
+    console.log("[4/4] API Key 凭据 → ~/.dsh/.credentials.yaml")
     const creds = fs.existsSync(CREDENTIALS) ? fs.readFileSync(CREDENTIALS, "utf8") : ""
     for (const p of PROVIDERS) {
       const fromEnv = process.env[p.env]

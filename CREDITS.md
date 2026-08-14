@@ -16,10 +16,11 @@ SAP ADT 协议的 Node.js 客户端库，本项目直接的运行时依赖（`de
 
 | 依赖 | 说明 |
 |---|---|
-| [@earendil-works/pi-coding-agent](https://github.com/badlogic/pi-mono) | AI Agent 引擎（会话、模型、工具框架） |
+| [@deepseek-ai/dsh-tools](https://www.npmjs.com/package/@deepseek-ai/dsh-tools) | DSH 工具注册/执行运行时（peer） |
+| [@deepseek-ai/cordis](https://www.npmjs.com/package/@deepseek-ai/cordis) | Cordis 插件运行时（peer） |
 | [abap-adt-api](https://github.com/marcellourbani/abap-adt-api) | SAP ADT 协议客户端 |
 | [zod](https://github.com/colinhacks/zod) | 工具参数 schema 校验 |
-| [typebox](https://github.com/sinclairzx81/typebox) | 工具参数类型（pi 工具注册） |
+| [typebox](https://github.com/sinclairzx81/typebox) | 工具参数类型（zod→typebox 转换） |
 
 ## License
 

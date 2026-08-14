@@ -149,7 +149,7 @@ SELECTION-SCREEN END OF BLOCK b1.
 块标题和选择项文本必须用文本元素（TEXT-001），禁止硬编码。
 
 > **禁止硬编码中文（强制）**：所有用户可见文案（提示/错误/说明）禁止直接写在代码里：
-> - MESSAGE 语句 → 消息类（`MESSAGE e001(zxxx) WITH ...`，消息类用 `manage_transport_requests` 查/建或 MSAG/N 创建）
+> - MESSAGE 语句 → 消息类（`MESSAGE e001(zxxx) WITH ...`，消息类用 `create_object_programmatically`（MSAG/N）创建；查询/维护用 `translate_message_class`）
 > - ALV 列文本/标题/选择文本 → 文本元素（`TEXT-xxx`，`manage_text_elements` 维护）
 > - 屏幕块标题 → 文本元素；仅技术注释可用中文。
 
@@ -274,7 +274,7 @@ CALL FUNCTION 'ALSM_EXCEL_TO_INTERNAL_TABLE'
 | 未声明变量 | 缺少 DATA 声明 | 用内联声明 `@DATA(...)` |
 | 表未声明 | TABLES 缺失 | 添加 `TABLES:` 声明（选择屏幕 FOR 字段需要） |
 | 选择屏幕错误 | FOR 引用字段不存在 | 确认表已声明在 TABLES 中 |
-| `Comma without preceding colon` | `TYPES:` 冒号链内结构体误用 `.` 终止 | 见 `Memory.md` 避坑指南 |
+| `Comma without preceding colon` | `TYPES:` 冒号链内结构体误用 `.` 终止 | 见 `prompts/Memory.md` 避坑指南 |
 
 ## 常用事务码参考
 

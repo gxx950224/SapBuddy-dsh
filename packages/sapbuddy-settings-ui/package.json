@@ -11,12 +11,14 @@
   },
   "files": [
     "lib/",
-    "dist/"
+    "dist/",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "node scripts/build-client.mjs",
-    "test": "node --test test/",
-    "check": "node scripts/build-client.mjs"
+    "check": "node scripts/build-client.mjs",
+    "prepack": "node scripts/build-client.mjs"
   },
   "keywords": [
     "sap",
@@ -27,6 +29,11 @@
     "settings"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gxx950224/sapbuddy-dsh.git"
+  },
+  "homepage": "https://github.com/gxx950224/sapbuddy-dsh#readme",
   "engines": {
     "node": ">=22"
   },

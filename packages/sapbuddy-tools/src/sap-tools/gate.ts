@@ -15,8 +15,8 @@ import { isWriteTool, isWriteApproved, handleUserMessage, isReadOnly, namespaceV
 import { isConnectionDirty } from "./adtManager.js"
 import { sapbuddyHome, sapbuddyPath } from "./sapbuddy-home.js"
 
-/** 敏感配置文件清单（禁止 AI 读写；位置无关） */
-const PROTECTED_CONFIG = ["connections.json", "auth.json", "settings.json", "models.json", "models-store.json", "mcp.json"]
+/** 敏感配置文件清单（禁止 AI 读写；位置无关）。MCP 配置由 DSH 内置 dsh-mcp-client 管理（profile patch），不在本目录保护范围内。 */
+const PROTECTED_CONFIG = ["connections.json", "auth.json", "settings.json", "models.json", "models-store.json"]
 const READ_TOOLS = new Set(["read", "glob", "grep", "find", "ls"])
 const WRITE_TOOLS = new Set(["write", "edit"])
 /** 配置目录内允许 AI 触碰的子树 */
@@ -60,7 +60,7 @@ export function configPathViolation(name: string, input: unknown): string | unde
     const traversal = cmd.includes("..")
     const allowed = (isOpenArtifact || uploadsOnly) && !traversal && !cmdRefsProtected
     if (!allowed) {
-      return `⛔ 命令行操作被安全拦截（涉及敏感配置）：${String(o.command ?? "").slice(0, 120)}\n安全配置（连接凭据 / API 密钥 / 模型 / MCP）仅限你本人手动查看配置目录。`
+      return `⛔ 命令行操作被安全拦截（涉及敏感配置）：${String(o.command ?? "").slice(0, 120)}\n安全配置（连接凭据 / API 密钥 / 模型配置）仅限你本人手动查看配置目录。`
     }
     return undefined
   }
@@ -70,17 +70,17 @@ export function configPathViolation(name: string, input: unknown): string | unde
     const rest = lower.slice(lower.indexOf(home) + home.length).replace(/^[/\\]+/, "")
     const allowed = ALLOWED_SUBTREES.some((s) => rest === s || rest.startsWith(s + "/"))
     if (!allowed) {
-      return `⛔ 配置目录禁止由 AI 读取（已拦截）：${p}\n安全配置（连接凭据 / API 密钥 / 模型 / MCP）仅限你本人手动查看配置目录。`
+      return `⛔ 配置目录禁止由 AI 读取（已拦截）：${p}\n安全配置（连接凭据 / API 密钥 / 模型配置）仅限你本人手动查看配置目录。`
     }
   }
 
   // 文件名级拦截（覆盖任何位置的配置副本）
   if (refsProtected) {
     if (READ_TOOLS.has(name)) {
-      return `⛔ 敏感配置文件禁止由 AI 读取（已拦截）：${p}\n安全配置（连接凭据 / API 密钥 / 模型 / MCP）仅限你本人手动查看配置目录。`
+      return `⛔ 敏感配置文件禁止由 AI 读取（已拦截）：${p}\n安全配置（连接凭据 / API 密钥 / 模型配置）仅限你本人手动查看配置目录。`
     }
     if (WRITE_TOOLS.has(name)) {
-      return `⛔ 配置文件禁止由 AI 直接修改（已拦截，未写入）：${p}\n安全配置（连接凭据 / API 密钥 / 只读开关 / 模型 / MCP）只能由你在配置目录手动编辑，改完重启服务生效。`
+      return `⛔ 配置文件禁止由 AI 直接修改（已拦截，未写入）：${p}\n安全配置（连接凭据 / API 密钥 / 只读开关 / 模型配置）只能由你在配置目录手动编辑，改完重启服务生效。`
     }
   }
 
@@ -113,6 +113,19 @@ export function decideWriteApproval(input: DecideInput): WriteDecision {
   if (ns) return { kind: "deny", reason: `⛔ ${ns}` }
   if (input.windowApproved) return { kind: "allow" }
   return { kind: "ask", reason: "写操作需要人工确认：请回复“确认/批准”开启授权窗口，或在审批提示中批准本次操作。" }
+}
+
+/**
+ * abap_wiki 知识库只读门禁：mcp__abap_wiki__ 写类工具（append/create/update/patch/delete/rename 等）
+ * 一律直接拦截，不可人工确认放行（知识库只读）；其他 MCP 服务器（如 mcp__sap_mcp_dev__*）不受影响。
+ * 工具命名遵循 DSH 的 mcp__<server>__<tool> 双下划线规范。
+ */
+const WIKI_WRITE_RE = /^mcp__abap_wiki__(append|create|update|patch|delete|rename|write|edit|move|remove|set)(_|$)/i
+export function wikiWriteViolation(name: string): string | undefined {
+  if (WIKI_WRITE_RE.test(name)) {
+    return `⛔ 知识库为只读参考，已直接拦截（未执行）：${name}\n禁止向 abap_wiki 知识库做任何写入（创建/修改/删除笔记均不允许）。\n如需新增或修改知识库分析，请提示用户手动在 Obsidian 中编辑，不要再次尝试写入。`
+  }
+  return undefined
 }
 
 /** 从 UserMessage.content 提取文本（ContentBlock[] 中取 text 块） */
@@ -166,6 +179,9 @@ export function installWriteGate(
   if (tools?.guard) {
     disposers.push(
       tools.guard((exec: ExecLike) => {
+        // abap_wiki 知识库只读：对 MCP 写工具（含非 sapbuddy 工具）直接硬拦截
+        const wv = wikiWriteViolation(exec.name)
+        if (wv) return wv
         const cv = configPathViolation(exec.name, exec.arguments)
         if (cv) return cv
         if (!isWriteTool(exec.name)) return undefined
