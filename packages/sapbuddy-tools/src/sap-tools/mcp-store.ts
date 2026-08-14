@@ -148,8 +148,12 @@ export function renderMcpClientRows(servers: Record<string, McpServer>): string 
   return out.join("\n")
 }
 
-/** 把 mcp.json 的服务器追加为 dsh-mcp-client 行（写入 home 级 patch；幂等去重）。
- * ⚠️ 必须保证 home patch 始终是合法顶层数组：无服务器时写 `[]`，绝不允许只剩注释。 */
+/** 把 mcp.json 的服务器写入 home 级 patch（幂等；整体重建，单次原子写）。
+ * ⚠️ 必须保证 home patch 始终是合法顶层数组。对任意历史脏状态（粘连的 `[]`、
+ * 重复注释、旧 MCP 块残留、并发写入产物）都做归一化：
+ *  - 去掉所有孤立 `[]`（含与注释粘连的）；
+ *  - 截掉旧 MCP 块（header 起至文件尾）整体重建；
+ *  - 无服务器写 `[]`，有服务器写注释+行；绝不允许只剩注释。 */
 export function appendMcpToHomePatch(): { ok: true; target: string; count: number } | { ok: false; error: string } {
   const servers = readRaw()
   const rows = renderMcpClientRows(servers)
@@ -157,15 +161,17 @@ export function appendMcpToHomePatch(): { ok: true; target: string; count: numbe
   try {
     mkdirSync(path.dirname(target), { recursive: true })
     const existing = existsSync(target) ? readFileSync(target, "utf8") : ""
+    const marker = "# MCP 服务器（由 sapbuddy-dsh 设置页生成"
     const header = `# MCP 服务器（由 sapbuddy-dsh 设置页生成，来源 ${MCP_FILE}）`
-    // 1) 去掉 `[]` 占位行（空列表），保留其余内容
-    let base = existing.split("\n").filter((l) => !/^\s*\[\s*\]\s*$/.test(l)).join("\n").trimEnd()
-    // 2) 若已有 MCP 块（header 行），截掉该块及之后的所有内容（块整体替换）
-    const headerIdx = base.indexOf(header)
-    if (headerIdx >= 0) base = base.slice(0, headerIdx).trimEnd()
+    // 1) 截掉旧 MCP 块（marker 起至文件尾，含脏残留）
+    let text = existing
+    const mi = text.indexOf(marker)
+    if (mi >= 0) text = text.slice(0, mi)
+    // 2) 去掉所有孤立 `[]`（含 `[]# comment` 粘连形态），避免 [] 与后续行并列成非法文档
+    text = text.replace(/\s*\[\s*\]\s*/g, "\n").replace(/\n{3,}/g, "\n\n").trimEnd()
     // 3) 组装 body：无服务器 → 合法空数组；有 → header + 行
     const body = rows.trim() === "" ? "[]" : `${header}\n${rows}\n`
-    const next = base ? `${base}\n${body}` : body
+    const next = text ? `${text}\n${body}` : body
     writeFileSync(target, next)
     return { ok: true, target, count: rows.split("\n").filter(Boolean).length }
   } catch (e) {

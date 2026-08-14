@@ -24,7 +24,13 @@ async function post(path, body) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   })
-  return r.json()
+  let j
+  try { j = await r.json() } catch {
+    // 非 JSON 响应（如 404 页面）：多半是设置服务未加载（需重启 dsh web）
+    return { ok: false, error: r.status === 404 ? "设置服务未加载（API 404）——请重启 dsh web 后重试" : "响应解析失败（HTTP " + r.status + "）" }
+  }
+  if (!r.ok && !("ok" in j)) j = { ok: false, error: "HTTP " + r.status + (j.error ? ": " + j.error : "") }
+  return j
 }
 
 const S = {

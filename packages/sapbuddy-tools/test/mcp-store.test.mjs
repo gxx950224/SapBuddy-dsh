@@ -133,3 +133,37 @@ test("appendMcpToHomePatch：无服务器时 home patch 必须是合法空数组
   assert.equal(parsed2.length, 1, "应恰好一行 dsh-mcp-client")
   assert.equal(parsed2[0].id, "mcp-sap")
 })
+
+test("appendMcpToHomePatch：历史脏状态归一化（粘连[]/重复注释/旧块残留）始终合法", () => {
+  const yaml = require("js-yaml")
+  store.replaceMcpServers({ mcpServers: {} }) // 隔离：清空此前测试残留
+  const target = join(fakeHome, ".dsh", "cordis.patch.yml")
+  const write = (t) => require("node:fs").writeFileSync(target, t)
+  const read = () => require("node:fs").readFileSync(target, "utf8")
+  // 1) 复现用户遇到的损坏态：粘连 [] + 重复注释 + 旧 MCP 块
+  write("# dsh home-level patch layer (applies to every profile)\n[]# dsh home-level patch layer (applies to every profile)\n[]\n\n# MCP 服务器（由 sapbuddy-dsh 设置页生成，来源 x）\n\n")
+  store.saveMcpServer("s1", { url: "https://a/mcp" })
+  let r = store.appendMcpToHomePatch()
+  assert.equal(r.ok, true)
+  let y = yaml.load(read())
+  assert.ok(Array.isArray(y), "损坏态归一化后必须是数组")
+  assert.equal(y.length, 1)
+  assert.equal(y[0].id, "mcp-s1")
+  // 2) 清空后再生成 → 回到合法 []
+  store.replaceMcpServers({ mcpServers: {} })
+  r = store.appendMcpToHomePatch()
+  assert.equal(r.ok, true)
+  y = yaml.load(read())
+  assert.ok(Array.isArray(y))
+  assert.equal(y.length, 0)
+  // 3) 空文件 + 服务器 → 只有行，无 [] 残留
+  write("")
+  store.saveMcpServer("s2", { url: "https://b/mcp" })
+  r = store.appendMcpToHomePatch()
+  assert.equal(r.ok, true)
+  y = yaml.load(read())
+  assert.ok(Array.isArray(y))
+  assert.equal(y.length, 1)
+  assert.equal(y[0].id, "mcp-s2")
+  assert.ok(!read().includes("[]"), "不应有 [] 与行并列")
+})
