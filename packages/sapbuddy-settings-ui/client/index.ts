@@ -7,7 +7,6 @@
  */
 
 const React = require("react")
-const { installSettingsPanel } = require("./settings-panel")
 
 const { useState, useEffect, useCallback } = React
 
@@ -284,14 +283,9 @@ function McpSection() {
 
 // 客户端挂载用 bundle 的 exports.inject —— 必须是浏览器里的【服务键】（如 slots），
 // 不是 package.json 的 dsh.client.inject 包名。与官方 models 设置包同模式。
-export const inject = ["slots", "locale"]
+export const inject = ["slots"]
 
 export function apply(ctx) {
-  // 遮蔽官方面板：节导航图标扩展（priority:-1，低者渲染；可逆）
-  ctx.effect(() => {
-    const ds = installSettingsPanel(ctx)
-    return () => { for (const d of ds) { try { d() } catch { /* 忽略 */ } } }
-  }, "sapbuddy-settings: panel shadow")
   ctx.slots.inject("settings.section", () => ctx.slots.register({
     name: "settings.section",
     id: "sapbuddy-connections",
