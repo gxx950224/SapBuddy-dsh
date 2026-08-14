@@ -229,6 +229,15 @@ function McpSection() {
     const r = await post(MCP_API + "/test", { name })
     setTests((m) => ({ ...m, [name]: r.ok ? "✅ " + (r.message ?? "连接成功") : "❌ " + (r.error ?? "测试失败") }))
   }
+  const doFormat = () => {
+    try {
+      const parsed = JSON.parse(jsonText)
+      setJsonText(JSON.stringify(parsed, null, 2))
+      setErr(null)
+    } catch (e) {
+      setErr("格式化失败（JSON 解析错误）: " + (e.message ?? e))
+    }
+  }
   const doGenerate = async () => {
     setBusy(true)
     try {
@@ -270,6 +279,7 @@ function McpSection() {
     ]),
     React.createElement("div", { key: "acts", style: { display: "flex", gap: 8, justifyContent: "flex-end" } }, [
       React.createElement("button", { key: "gen", style: { ...S.btn, height: 36, borderRadius: 18, padding: "0 14px" }, disabled: busy, onClick: doGenerate }, "生成 dsh-mcp-client 配置（热生效）"),
+      React.createElement("button", { key: "fmt", style: { ...S.btn, height: 36, borderRadius: 18, padding: "0 14px" }, disabled: busy, onClick: doFormat }, "格式化"),
       React.createElement("button", { key: "s", style: { ...S.btn, ...S.btnPrimary, height: 36, borderRadius: 18, padding: "0 14px" }, disabled: busy, onClick: save }, busy ? "保存中…" : "保存 mcp.json"),
     ]),
     servers.length > 0
