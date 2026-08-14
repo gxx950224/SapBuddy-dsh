@@ -56,6 +56,33 @@ node scripts/install.mjs               # 安装插件到 web profile、复制 pr
 恢复：设置页出问题可 `node scripts/recover.mjs`（只移除 sapbuddy 设置行，**保留**你在
 patch 里的其他自定义行）。
 
+## 让 AI 一键安装（提示词，可直接复制给 AI 助手）
+
+不想手动敲命令？把下面这段完整粘贴给任意 AI 编码助手（DeepSeek Harness 会话等），
+它会按步骤下载、构建、安装：
+
+```markdown
+下载并安装 sapbuddy-dsh 到本机 DeepSeek Harness：
+
+1. git clone https://github.com/gxx950224/SapBuddy-dsh.git 到工作区，进入目录
+2. pnpm install && pnpm -r build        # 全新环境也能编译（peer 依赖自动装）
+3. 运行 node scripts/install.mjs        # 装 sapbuddy-tools / sapbuddy-settings / sapbuddy-settings-ui
+                                         # 到 DSH web profile，复制 preset 到 ~/.dsh/.agent-presets/sapbuddy/
+   ⚠️ 这一步要写 ~/.dsh/（profile patch、preset 目录），在你的沙箱权限之外：
+      如被沙箱拒绝，申请权限升级并等待用户批准；不要绕过、不要用其他方式偷偷写这些文件。
+4. 安装器不配置模型和 API Key——模型由用户到 DSH 的 Web 设置 → 模型页选择（含填 key）。
+5. 完成后向用户报告：
+   - 重启 dsh web（需用户自己执行）
+   - 侧边栏选择 "SapBuddy" preset
+   - 编辑 ~/.dsh/.agent-presets/sapbuddy/connections.json 填 SAP 连接
+   - （可选）MCP 服务器按本仓库 README 用 dsh-mcp-client 配置
+
+注意事项：
+- 前提：机器有 git、Node ≥ 22、pnpm（缺 pnpm 先 npm i -g pnpm，同样需批准）
+- 不要修改 preset 里已存在的 connections.json / Memory.md（用户数据）
+- 全程不要动 ~/.dsh/settings.yaml 的模型段和 ~/.dsh/.credentials.yaml
+```
+
 ## MCP（可选）
 
 MCP 服务器由你直接在 **DSH 内置 dsh-mcp-client** 配置（在 `~/.dsh/profiles/web/cordis.patch.yml`
