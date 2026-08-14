@@ -56,3 +56,13 @@ pnpm install --store-dir /tmp/pnpm-store   # 沙箱内需本地 store；正常�
 pnpm -r build
 pnpm -r test
 ```
+
+## MCP 自签名证书（重要）
+SAP 内网 MCP 端点通常用自签名证书，而 DSH 的 dsh-mcp-client 经 MCP SDK 的 fetch 连接，
+默认 TLS 会拒绝（`DEPTH_ZERO_SELF_SIGNED_CERT`）→ 连接失败、**MCP 工具不出现**（静默，无报错）。
+解决：在**启动环境**放开 TLS 校验（`.env` 缝被 DSH 安全策略拒绝，只能在启动环境设）：
+```bash
+# ~/.zshrc 加一行（或每次启动前缀）
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+```
+更安全：导出 SAP 证书并用 `NODE_EXTRA_CA_CERTS=/path/sap-cert.pem`（只信任该证书）。

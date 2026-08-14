@@ -274,6 +274,8 @@ function McpSection() {
     React.createElement("p", { key: "i", style: S.intro },
       "直接编辑下方 JSON（格式与 mcp.json 一致：{\"mcpServers\": {\"<名称>\": {\"url\": ..., \"headers\": {...}, \"disabled\": false}}}）。" +
       "保存后点「生成 dsh-mcp-client 配置」写入 DSH home 层（所有 profile 生效），数秒内热生效（无需重启），MCP 工具以 mcp__<服务器>__<工具> 在任意会话可用。"),
+    React.createElement("p", { key: "tls", style: S.err },
+      "提示：若服务器用自签名证书（如内网 SAP），需在启动环境放开 TLS 校验（export NODE_TLS_REJECT_UNAUTHORIZED=0，加到 ~/.zshrc 或启动命令前缀），否则 MCP 连接被证书拒绝、工具不出现。"),
     msg ? React.createElement("p", { key: "m", style: S.msg }, msg) : null,
     err ? React.createElement("p", { key: "e", style: S.err }, err) : null,
     React.createElement("label", { key: "j", style: S.field }, [
