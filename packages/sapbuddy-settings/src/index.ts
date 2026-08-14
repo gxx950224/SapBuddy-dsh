@@ -6,6 +6,7 @@
  * 密码永不出现在响应中（store 层脱敏）。
  */
 import type { IncomingMessage, ServerResponse } from "node:http"
+import https from "node:https"
 import {
   listConnections,
   saveConnection,
@@ -45,17 +46,33 @@ function readBody(req: IncomingMessage): Promise<unknown> {
   })
 }
 
-/** 测试连接：用连接明文凭据做一次 ADT 请求（结果只回状态码，不回敏感信息） */
+/** 测试连接：用连接明文凭据做一次 ADT 请求（结果只回状态码，不回敏感信息）。
+ * 用 node:https 直连以支持 ssl.allowSelfSigned（Node fetch 不支持该选项）。 */
 async function testConnection(id: string): Promise<{ ok: boolean; status: number; message?: string }> {
   const c = getConnectionSecret(id)
   if (!c) return { ok: false, status: 0, message: `连接 ${id} 不存在` }
+  const url = new URL(`${String(c.url).replace(/\/+$/, "")}/sap/bc/adt/compatibility/graph`)
   const auth = "Basic " + Buffer.from(`${c.username}:${c.password ?? ""}`).toString("base64")
   const headers: Record<string, string> = { Authorization: auth, Accept: "*/*" }
   if (c.client) headers["X-sap-login-client"] = c.client
-  const url = `${String(c.url).replace(/\/+$/, "")}/sap/bc/adt/compatibility/graph`
   try {
-    const res = await fetch(url, { headers, signal: AbortSignal.timeout(15_000) })
-    return { ok: res.ok, status: res.status, message: res.ok ? "连接成功" : `认证失败（HTTP ${res.status}）：请检查账号/密码/客户端号，或 ADT 服务是否激活` }
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = https.request(
+        url,
+        {
+          method: "GET",
+          headers,
+          rejectUnauthorized: !(c.ssl?.allowSelfSigned ?? false),
+          timeout: 15_000,
+        },
+        (res) => { res.resume(); resolve(res.statusCode ?? 0) },
+      )
+      req.on("timeout", () => req.destroy(new Error("超时（15s）")))
+      req.on("error", reject)
+      req.end()
+    })
+    const ok = status >= 200 && status < 300
+    return { ok, status, message: ok ? "连接成功" : `认证失败（HTTP ${status}）：请检查账号/密码/客户端号，或 ADT 服务是否激活` }
   } catch (e) {
     return { ok: false, status: 0, message: `连接失败: ${e instanceof Error ? e.message : String(e)}` }
   }
@@ -126,4 +143,4 @@ export function apply(ctx: {
   })
 }
 
-export default { name: "sapbuddy-settings", apply }
+export default { name: "sapbuddy-settings", inject: ["webServer"], apply }
