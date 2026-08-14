@@ -124,28 +124,30 @@ function sanitizeId(name: string): string {
   return "mcp-" + String(name).toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 32)
 }
 
-/** 生成 dsh-mcp-client 配置行（YAML 文本；disabled 服务器跳过） */
+/** 生成 dsh-mcp-client 配置（YAML 文本；disabled 服务器跳过）。
+ * ⚠️ 必须包在 `- insert:` 块里——patch 层的裸 `- id:` 是覆盖补丁（entry not found），
+ * 新增行会被静默跳过、插件永不挂载。 */
 export function renderMcpClientRows(servers: Record<string, McpServer>): string {
   const out: string[] = []
   for (const [name, s] of Object.entries(servers)) {
     if (!s || s.disabled === true || !s.url) continue
     const lines = [
-      `- id: ${sanitizeId(name)}`,
-      `  name: '@deepseek-ai/dsh-mcp-client'`,
-      `  config:`,
-      `    serverName: ${name}`,
-      `    transport: streamable-http`,
-      `    url: ${s.url}`,
+      `    - id: ${sanitizeId(name)}`,
+      `      name: '@deepseek-ai/dsh-mcp-client'`,
+      `      config:`,
+      `        serverName: ${name}`,
+      `        transport: streamable-http`,
+      `        url: ${s.url}`,
     ]
     if (s.headers && Object.keys(s.headers).length > 0) {
-      lines.push(`    headers:`)
+      lines.push(`        headers:`)
       for (const [hk, hv] of Object.entries(s.headers)) {
-        lines.push(`      ${hk}: ${typeof hv === "string" ? JSON.stringify(hv) : hv}`)
+        lines.push(`          ${hk}: ${typeof hv === "string" ? JSON.stringify(hv) : hv}`)
       }
     }
     out.push(lines.join("\n"))
   }
-  return out.join("\n")
+  return out.length > 0 ? `- insert:\n${out.join("\n")}` : ""
 }
 
 /** 把 mcp.json 的服务器写入 home 级 patch（幂等；整体重建，单次原子写）。

@@ -60,8 +60,9 @@ test("renderMcpClientRows：生成 dsh-mcp-client 行（disabled 跳过、header
     sap: { url: "https://host/mcp", headers: { Authorization: "Bearer t" } },
     off: { url: "https://x", disabled: true },
   })
-  assert.ok(rows.includes("- id: mcp-sap"), "应含 mcp-sap 行")
-  assert.ok(rows.includes("name: '@deepseek-ai/dsh-mcp-client'"))
+  assert.ok(rows.startsWith("- insert:"), "应以 insert 块开头")
+  assert.ok(rows.includes("mcp-sap"), "应含 mcp-sap 行")
+  assert.ok(rows.includes("@deepseek-ai/dsh-mcp-client"))
   assert.ok(rows.includes("transport: streamable-http"))
   assert.ok(rows.includes("serverName: sap"))
   assert.ok(rows.includes('Authorization: "Bearer t"'), "headers 应透传")
@@ -130,8 +131,8 @@ test("appendMcpToHomePatch：无服务器时 home patch 必须是合法空数组
   assert.equal(r2.ok, true)
   const parsed2 = yaml.load(readFileSync(target, "utf8"))
   assert.ok(Array.isArray(parsed2), "有服务器时仍须是顶层数组")
-  assert.equal(parsed2.length, 1, "应恰好一行 dsh-mcp-client")
-  assert.equal(parsed2[0].id, "mcp-sap")
+  assert.equal(parsed2.length, 1, "应恰好一个 insert 块")
+  assert.equal(parsed2[0].insert[0].id, "mcp-sap")
 })
 
 test("appendMcpToHomePatch：历史脏状态归一化（粘连[]/重复注释/旧块残留）始终合法", () => {
@@ -148,7 +149,7 @@ test("appendMcpToHomePatch：历史脏状态归一化（粘连[]/重复注释/�
   let y = yaml.load(read())
   assert.ok(Array.isArray(y), "损坏态归一化后必须是数组")
   assert.equal(y.length, 1)
-  assert.equal(y[0].id, "mcp-s1")
+  assert.equal(y[0].insert[0].id, "mcp-s1")
   // 2) 清空后再生成 → 回到合法 []
   store.replaceMcpServers({ mcpServers: {} })
   r = store.appendMcpToHomePatch()
@@ -164,6 +165,6 @@ test("appendMcpToHomePatch：历史脏状态归一化（粘连[]/重复注释/�
   y = yaml.load(read())
   assert.ok(Array.isArray(y))
   assert.equal(y.length, 1)
-  assert.equal(y[0].id, "mcp-s2")
+  assert.equal(y[0].insert[0].id, "mcp-s2")
   assert.ok(!read().includes("[]"), "不应有 [] 与行并列")
 })
