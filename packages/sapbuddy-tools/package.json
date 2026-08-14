@@ -1,13 +1,14 @@
 {
   "name": "sapbuddy-tools",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "SapBuddy 41 个 SAP 工具 —— DeepSeek Harness 工具插件（DSH 底座版，替代 pi-coding-agent）",
   "type": "module",
   "main": "dist/index.js",
   "exports": {
     ".": "./dist/index.js",
     "./store": "./dist/sap-tools/connections-store.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./mcp-store": "./dist/sap-tools/mcp-store.js"
   },
   "files": [
     "dist/"

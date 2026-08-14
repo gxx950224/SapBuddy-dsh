@@ -14,8 +14,8 @@ sapbuddy-dsh/
 │   ├── sapbuddy-tools/        # 41 个 SAP 工具（vendored from SapBuddy）+ DSH 注册层 + 写门禁 + 连接存储
 │   │   ├── src/sap-tools/     # 业务实现（tools/、adtManager、config、taskTransport、auditLog、register、gate…）
 │   │   └── test/              # 工具层 + 转换器 + 插件加载 + 门禁 + 连接存储单测（191 用例）
-│   ├── sapbuddy-settings/     # DSH 设置宿主 API：webServer 路由 /api/sapbuddy/connections*
-│   │   └── src/index.ts       #   （list/upsert/activate/delete/test，inject:['webServer']）
+│   ├── sapbuddy-settings/     # DSH 设置宿主 API：webServer 路由（connections* + mcp*）
+│   │   └── src/index.ts       #   （list/upsert/activate/delete/test/generate，inject:['webServer']）
 │   └── sapbuddy-settings-ui/  # DSH 设置界面 "SAP 连接" 页（客户端 settings.section，官方"宿主/客户端"分离模式）
 │       ├── client/index.ts    # 浏览器：多连接配置 + 切换启用（esbuild → dist/client.js）
 │       └── scripts/build-client.mjs

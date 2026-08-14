@@ -170,6 +170,127 @@ function Section() {
   ])
 }
 
+// ── MCP 服务器设置页 ──────────────────────────────────────────────────────────
+const MCP_API = "/api/sapbuddy/mcp"
+
+async function listMcp() {
+  const r = await fetch(MCP_API)
+  const j = await r.json()
+  return j.servers ?? []
+}
+
+function McpSection() {
+  const [servers, setServers] = useState([])
+  const [mode, setMode] = useState(null) // null | "new" | <name 编辑>
+  const [draft, setDraft] = useState({ headersText: "" })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const [err, setErr] = useState(null)
+  const [tests, setTests] = useState({})
+
+  const refresh = useCallback(async () => {
+    try { setServers(await listMcp()); setErr(null) } catch (e) { setErr("加载失败: " + (e.message ?? e)) }
+  }, [])
+  useEffect(() => { refresh() }, [refresh])
+
+  const set = (key) => (evt) => setDraft((d) => ({ ...d, [key]: evt.target.type === "checkbox" ? evt.target.checked : evt.target.value }))
+
+  const save = async () => {
+    setBusy(true)
+    try {
+      const headers = {}
+      for (const line of (draft.headersText || "").split("\n")) {
+        const i = line.indexOf(":")
+        if (i > 0) headers[line.slice(0, i).trim()] = line.slice(i + 1).trim()
+      }
+      const r = await post(MCP_API, { name: draft.name, server: { url: draft.url, headers: Object.keys(headers).length ? headers : undefined, disabled: draft.disabled } })
+      if (!r.ok) { setErr("保存失败: " + (r.error ?? "")); setMsg(null); return }
+      setMsg("已保存 MCP 服务器 " + draft.name); setErr(null)
+      setMode(null); setDraft({ headersText: "" })
+      refresh()
+    } catch (e) { setErr("保存失败: " + (e.message ?? e)) } finally { setBusy(false) }
+  }
+
+  const doDelete = async (name) => {
+    if (!window.confirm("删除 MCP 服务器 " + name + "？")) return
+    const r = await post(MCP_API + "/delete", { name })
+    if (!r.ok) setErr(r.error ?? "删除失败"); else { setMsg("已删除 " + name); setErr(null) }
+    refresh()
+  }
+  const doTest = async (name) => {
+    setTests((m) => ({ ...m, [name]: "测试中…" }))
+    const r = await post(MCP_API + "/test", { name })
+    setTests((m) => ({ ...m, [name]: r.ok ? "✅ " + (r.message ?? "连接成功") : "❌ " + (r.error ?? "测试失败") }))
+  }
+  const doGenerate = async () => {
+    setBusy(true)
+    try {
+      const r = await post(MCP_API + "/generate", {})
+      if (!r.ok) { setErr(r.error ?? "生成失败"); return }
+      setMsg(r.message ?? "已生成配置"); setErr(null)
+    } catch (e) { setErr("生成失败: " + (e.message ?? e)) } finally { setBusy(false) }
+  }
+
+  const startNew = () => setMode("new"), startEdit = (s) => setMode(s.name) || setDraft({ name: s.name, url: s.url, disabled: s.disabled, headersText: (s.headers ? Object.entries(s.headers).map(([k, v]) => k + ": " + v) : []).join("\n") })
+
+  const mcpInput = (key, label, ph, textarea) =>
+    React.createElement("label", { key: key, style: S.field }, [
+      React.createElement("span", { key: "l", style: S.label }, label),
+      textarea
+        ? React.createElement("textarea", { key: "i", style: { ...S.input, height: 64, paddingTop: 6, fontFamily: "monospace", fontSize: 12 }, value: draft[key] ?? "", placeholder: ph ?? "", onChange: set(key) })
+        : React.createElement("input", { key: "i", style: S.input, value: draft[key] ?? "", placeholder: ph ?? "", onChange: set(key) }),
+    ])
+
+  const row = (s) =>
+    React.createElement("li", { key: s.name, style: S.card }, [
+      React.createElement("div", { key: "r", style: S.row }, [
+        React.createElement("p", { key: "n", style: S.name }, s.name),
+        s.disabled
+          ? React.createElement("span", { key: "b", style: S.badge }, "已停用")
+          : React.createElement("span", { key: "b", style: { ...S.badge, ...S.badgeActive } }, "启用中"),
+        React.createElement("div", { key: "x", style: S.actions }, [
+          React.createElement("button", { key: "t", style: S.btn, onClick: () => doTest(s.name) }, "测试"),
+          React.createElement("button", { key: "e", style: S.btn, onClick: () => startEdit(s) }, "编辑"),
+          React.createElement("button", { key: "d", style: { ...S.btn, ...S.btnDanger }, onClick: () => doDelete(s.name) }, "删除"),
+        ]),
+      ]),
+      React.createElement("p", { key: "m", style: S.meta }, s.url + (s.hasHeaders ? " · 含请求头" : "")),
+      tests[s.name] ? React.createElement("p", { key: "tr", style: S.meta }, tests[s.name]) : null,
+    ])
+
+  const editor = React.createElement("div", { key: "e", style: S.editor }, [
+    React.createElement("div", { key: "g", style: S.grid }, [
+      mcpInput("name", "服务器名（唯一，如 sap-ai）", "sap-ai"),
+      mcpInput("url", "地址（MCP streamable-http）", "https://host/sap/bc/adt/mcp"),
+      mcpInput("headersText", "请求头（每行 键: 值）", "Authorization: Bearer xxx", true),
+    ]),
+    React.createElement("label", { key: "d", style: { ...S.field, flexDirection: "row", alignItems: "center", gap: 8 } }, [
+      React.createElement("input", { key: "c", type: "checkbox", checked: Boolean(draft.disabled), onChange: set("disabled") }),
+      React.createElement("span", { key: "t", style: S.label }, "停用（不生成配置行）"),
+    ]),
+    React.createElement("div", { key: "a", style: { display: "flex", gap: 8, justifyContent: "flex-end" } }, [
+      React.createElement("button", { key: "c", style: S.btn, onClick: () => { setMode(null); setDraft({ headersText: "" }) } }, "取消"),
+      React.createElement("button", { key: "s", style: { ...S.btn, ...S.btnPrimary }, disabled: busy, onClick: save }, busy ? "保存中…" : "保存"),
+    ]),
+  ])
+
+  return React.createElement("div", { style: S.wrap }, [
+    React.createElement("h3", { key: "t", style: S.title }, "MCP 服务器"),
+    React.createElement("p", { key: "i", style: S.intro },
+      "配置外部 MCP 服务器（如 SAP 端 ZSX_MCP）。保存后点下方「生成 dsh-mcp-client 配置」，" +
+      "写入 DSH home 层配置（对所有 profile 生效），重启后 MCP 工具以 mcp__<服务器>__<工具> 在任意会话可用。"),
+    msg ? React.createElement("p", { key: "m", style: S.msg }, msg) : null,
+    err ? React.createElement("p", { key: "e", style: S.err }, err) : null,
+    React.createElement("ul", { key: "l", style: S.list }, servers.map(row)),
+    mode === null
+      ? React.createElement("div", { key: "btns", style: { display: "flex", gap: 10, alignItems: "center" } }, [
+          React.createElement("button", { key: "add", style: { ...S.btn, ...S.btnPrimary, height: 36, borderRadius: 18, padding: "0 14px" }, onClick: startNew }, "＋ 添加服务器"),
+          React.createElement("button", { key: "gen", style: { ...S.btn, height: 36, borderRadius: 18, padding: "0 14px" }, disabled: busy, onClick: doGenerate }, "生成 dsh-mcp-client 配置（重启生效）"),
+        ])
+      : editor,
+  ])
+}
+
 // 客户端挂载用 bundle 的 exports.inject —— 必须是浏览器里的【服务键】（如 slots），
 // 不是 package.json 的 dsh.client.inject 包名。与官方 models 设置包同模式。
 export const inject = ["slots"]
@@ -180,5 +301,13 @@ export function apply(ctx) {
     id: "sapbuddy-connections",
     order: 90,
     label: () => "SAP 连接",
+    inject: () => ({})
   }, Section))
+  ctx.slots.inject("settings.section", () => ctx.slots.register({
+    name: "settings.section",
+    id: "sapbuddy-mcp",
+    order: 91,
+    label: () => "MCP 服务器",
+    inject: () => ({})
+  }, McpSection))
 }

@@ -1,6 +1,6 @@
 {
   "name": "sapbuddy-settings",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SapBuddy SAP 连接管理宿主 API——webServer 路由（list/upsert/activate/delete/test）",
   "type": "module",
   "main": "dist/index.js",
