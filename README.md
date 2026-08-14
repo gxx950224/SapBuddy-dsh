@@ -10,18 +10,18 @@ SapBuddy 的 **DeepSeek Harness（DSH）** 底座版：41 个 SAP 工具、技�
 ```
 sapbuddy-dsh/
 ├── packages/
-│   ├── sapbuddy-tools/        # 41 个 SAP 工具（vendored from SapBuddy）+ DSH 注册层 + 写门禁 + 连接存储
+│   ├── sapbuddy-tools/        # 41 个 SAP 工具（vendored from SapBuddy）+ DSH 注册层 + 写门禁 + 连接存储 + 提示词注入
 │   │   ├── src/sap-tools/     # 业务实现（tools/、adtManager、config、taskTransport、auditLog、register、gate…）
-│   │   └── test/              # 工具层 + 转换器 + 插件加载 + 门禁 + 连接存储单测（170 用例全绿）
+│   │   └── test/              # 工具层 + 转换器 + 插件加载 + 门禁 + 连接存储 + 提示词注入单测（172 用例全绿）
 │   ├── sapbuddy-settings/     # DSH 设置宿主 API：webServer 路由（SAP 连接管理）
 │   │   └── src/index.ts       #   （list/upsert/activate/delete/test，inject:['webServer']）
 │   └── sapbuddy-settings-ui/  # DSH 设置界面 "SAP 连接" 页（客户端 settings.section）
 │       └── client/index.ts    # 浏览器：SAP 连接管理页（esbuild → dist/client.js）
-├── preset/                    # sapbuddy agent preset 模板（agent.cordis.yml + preset.yml + skills/ + 配置示例）
+├── preset/                    # sapbuddy agent preset 模板（agent.cordis.yml + preset.yml + skills/ + prompts/ + AGENTS.md + 配置示例）
 ├── overlays/
 │   └── headless.sapbuddy.yml  # headless 单次问答 overlay
 ├── scripts/
-│   ├── install.mjs            # 一键安装器（构建/插件/preset/配置收口/模型/凭据）
+│   ├── install.mjs            # 一键安装器（构建/插件/preset/配置收口；模型复用 DSH）
 │   └── recover.mjs            # 恢复脚本（仅移除 sapbuddy 设置行，保留用户其他自定义行）
 ├── docs/
 │   ├── REQUIREMENTS.md        # 需求文档 v1.0
@@ -38,7 +38,7 @@ sapbuddy-dsh/
 ```bash
 git clone https://github.com/gxx950224/sapbuddy-dsh.git && cd sapbuddy-dsh
 pnpm install && pnpm -r build          # 全新 clone 需要先构建（dist 不入库）
-node scripts/install.mjs               # 安装插件到 web profile、复制 preset、seed 模型/凭据
+node scripts/install.mjs               # 安装插件到 web profile、复制 preset（模型走 DSH 模型页）
 ```
 
 安装器会：把 `sapbuddy-tools` / `sapbuddy-settings` / `sapbuddy-settings-ui` 装进 web profile、
@@ -100,8 +100,8 @@ export NODE_TLS_REJECT_UNAUTHORIZED=0
 
 ```bash
 pnpm install          # 正常环境直接安装（沙箱内可 --store-dir 指定本地 store）
-# dev 依赖解析：@deepseek-ai/dsh-tools / @deepseek-ai/cordis 为 peerDependencies，
-# 由 DSH profile 运行时提供；本地开发经 pnpm auto-install-peers=false + symlink 指向本机 DSH 安装
+# dev 依赖解析：@deepseek-ai/dsh-tools / @deepseek-ai/cordis 为 peerDependencies，由 pnpm 自动安装
+# （npm 上已有匹配版本）；运行时由宿主 DSH profile 提供
 pnpm -r build
-pnpm -r test          # sapbuddy-tools：170 用例（门禁/转换器/插件加载/连接存储）全绿
+pnpm -r test          # sapbuddy-tools：172 用例（门禁/转换器/插件加载/连接存储/提示词注入）全绿
 ```
