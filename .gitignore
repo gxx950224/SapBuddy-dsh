@@ -9,3 +9,13 @@ dist/
 
 # 会话产物（DSH 工作区 output）
 /output/
+
+# Unified plugin ships these runtime artifacts.
+!packages/sapbuddy-dsh/dist/
+!packages/sapbuddy-dsh/dist/**
+.build-tmp/
+.tmp/
+*.tgz
+*.local.md
+.npmrc
+npm-debug.log*

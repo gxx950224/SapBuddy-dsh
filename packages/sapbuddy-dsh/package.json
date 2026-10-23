@@ -1,0 +1,86 @@
+{
+  "name": "sapbuddy-dsh",
+  "version": "0.0.6",
+  "description": "SapBuddy —— SAP ABAP AI 全能助手（DeepSeek Harness 插件）：41 个 SAP 工具 + 8 个 ABAP 技能 + SapBuddy preset + 连接设置页。一个包名装完。",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./tools": "./dist/tools.js",
+    "./client": "./dist/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/",
+    "skills/",
+    "defaults/",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "sap",
+    "abap",
+    "adt",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "dsh-preset",
+    "sapbuddy",
+    "cordis",
+    "agent-preset"
+  ],
+  "license": "MIT",
+  "author": "gxx950224 (https://github.com/gxx950224)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gxx950224/sapbuddy-dsh.git",
+    "directory": "packages/sapbuddy-dsh"
+  },
+  "homepage": "https://github.com/gxx950224/sapbuddy-dsh#readme",
+  "bugs": "https://github.com/gxx950224/sapbuddy-dsh/issues",
+  "engines": {
+    "node": ">=22"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings"
+      ],
+      "external": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "react"
+      ],
+      "platform": "web"
+    }
+  },
+  "dependencies": {
+    "abap-adt-api": "^8.4.1",
+    "axios": "^1.19.0",
+    "typebox": "^1.3.0",
+    "zod": "^4.4.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.0",
+    "@deepseek-ai/dsh-agent-preset": ">=0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": ">=0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-runtime": ">=0.1.0-rc.6",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0"
+  },
+  "scripts": {
+    "test": "npm run test:activation",
+    "test:activation": "node --experimental-vm-modules --test --test-isolation=none test/activation.test.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
