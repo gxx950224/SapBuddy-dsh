@@ -46,6 +46,7 @@ const S = {
   badge: { border: "1px solid var(--dsw-alias-border-l3)", color: "var(--dsw-alias-label-secondary)", borderRadius: 4, padding: "1px 6px", fontSize: 11, lineHeight: "16px", flex: "none" },
   badgeActive: { background: "var(--dsw-alias-state-success-primary)", borderColor: "var(--dsw-alias-state-success-primary)", color: "var(--dsw-alias-label-primary-foreground)" },
   meta: { margin: 0, fontSize: 12, lineHeight: "18px", color: "var(--dsw-alias-label-tertiary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  testMsg: { margin: 0, fontSize: 12, lineHeight: "18px", color: "var(--dsw-alias-label-secondary)", whiteSpace: "pre-wrap" },
   actions: { display: "flex", gap: 6, marginLeft: "auto", flex: "none" },
   btn: { height: 28, padding: "0 10px", borderRadius: 14, fontSize: 12, lineHeight: "18px", cursor: "pointer", border: "1px solid var(--dsw-alias-border-l2)", background: "transparent", color: "var(--dsw-alias-label-primary)", font: "inherit" },
   btnPrimary: { background: "var(--dsw-alias-button-primary-fill)", color: "var(--dsw-alias-label-primary-foreground)", border: "none" },
@@ -136,7 +137,7 @@ function Section() {
       React.createElement("p", { key: "m", style: S.meta },
         c.url + (c.client ? " · Client " + c.client : "") + " · " + c.username + (c.hasPassword ? " · 密码已设置" : " · 未设置密码")),
       testResult[c.id]
-        ? React.createElement("p", { key: "tr", style: S.meta }, testResult[c.id])
+        ? React.createElement("p", { key: "tr", style: S.testMsg }, testResult[c.id])
         : null,
     ])
 
@@ -144,18 +145,28 @@ function Section() {
     React.createElement("div", { key: "g1", style: S.grid }, [
       input("id", "连接 ID（唯一，如 dev/prod）", "dev"),
       input("name", "名称", "开发系统"),
-      input("url", "地址（https://host:port）", "https://10.8.202.35:44300"),
-      input("client", "客户端号", "100"),
+      input("url", "地址（http(s)://host:port）", "http://10.8.202.35:8000 或 https://10.8.202.35:44300"),
+      input("client", "客户端号（3 位，必须与系统一致）", "100"),
     ]),
     React.createElement("div", { key: "g2", style: S.grid }, [
       input("username", "用户名", "BC01"),
       input("password", "密码（编辑时留空保持原密码）", "••••••"),
-      input("language", "语言", "ZH"),
+      input("language", "登录语言（不确定填 EN）", "ZH"),
       input("authMethod", "认证方式", "basic"),
     ]),
     React.createElement("div", { key: "g3", style: S.grid }, [
       input("description", "描述", "开发系统"),
     ]),
+    React.createElement("label", { key: "ssl", style: { ...S.field, flexDirection: "row", alignItems: "center", gap: 8 } }, [
+      React.createElement("input", {
+        key: "i", type: "checkbox", checked: draft.ssl?.allowSelfSigned !== false,
+        onChange: (evt) => setDraft((d) => ({ ...d, ssl: { ...(d.ssl ?? {}), allowSelfSigned: evt.target.checked } })),
+      }),
+      React.createElement("span", { key: "l", style: S.label }, "允许自签名证书（内部系统 https 用）"),
+    ]),
+    React.createElement("p", { key: "hint", style: S.hint },
+      "端口对应协议：SAP 的 ICM HTTP 端口（常见 8000）用 http://，HTTPS 端口（常见 44300）用 https://。" +
+      "客户端号就是登录客户端（sap-client），填错会返回 401；登录语言不确定时填 EN。"),
     React.createElement("div", { key: "acts", style: { display: "flex", gap: 8, justifyContent: "flex-end" } }, [
       React.createElement("button", { key: "c", style: S.btn, onClick: () => { setMode(null); setDraft({}) } }, "取消"),
       React.createElement("button", { key: "s", style: { ...S.btn, ...S.btnPrimary }, disabled: busy, onClick: save }, busy ? "保存中…" : "保存"),
@@ -166,7 +177,8 @@ function Section() {
     React.createElement("h3", { key: "t", style: S.title }, "SAP 连接"),
     React.createElement("p", { key: "i", style: S.intro },
       "配置一个或多个 SAP 系统连接（ADT）。切换为启用后，SapBuddy 会话的 SAP 工具默认使用该连接；" +
-      "切换后需在会话中先调用 get_connected_systems 确认。密码仅保存在本机配置文件。"),
+      "切换后需在会话中先调用 get_connected_systems 确认。密码仅保存在本机配置文件。" +
+      "地址要写全协议：http:// 用于 ICM HTTP 端口（常见 8000），https:// 用于 HTTPS 端口（常见 44300）。"),
     msg ? React.createElement("p", { key: "m", style: S.msg }, msg) : null,
     err ? React.createElement("p", { key: "e", style: S.err }, err) : null,
     React.createElement("ul", { key: "l", style: S.list }, conns.map(connRow)),

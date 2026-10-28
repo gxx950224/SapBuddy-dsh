@@ -9,13 +9,13 @@ SapBuddy 的 DeepSeek Harness 插件：41 个 SAP ABAP 工具、8 个技能、Sa
 在 DSH 的插件管理页添加：
 
 ```text
-sapbuddy-dsh@0.0.7
+sapbuddy-dsh@0.0.8
 ```
 
 或者使用 DSH 命令行：
 
 ```bash
-dsh plugin --profile desktop add sapbuddy-dsh@0.0.7
+dsh plugin --profile desktop add sapbuddy-dsh@0.0.8
 ```
 
 安装或更新后完整退出并重启 DSH，在设置页配置 SAP 连接，新建会话选择 **SapBuddy**。需要 Node.js 22+ 和兼容的 DSH，宿主依赖要求见[插件 package.json](packages/sapbuddy-dsh/package.json)。
@@ -27,6 +27,12 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.0.7
 激活阶段报错后，工具仍会核对 active 源码与实时未激活对象清单。只有确认本次源码已生效、目标及相关对象没有未激活版本时，才清零该对象连续失败计数，本次也不再登记审计失败。INCLUDE 的原始报错仍作为诊断保留。
 
 旧 active 版本、相关对象仍未激活或状态查询失败不会被当作成功。详见[插件使用说明](packages/sapbuddy-dsh/README.md)。
+
+## 连接配置与排查
+
+地址必须写全协议，且协议要与端口一致：ICM HTTP 端口（常见 8000）用 `http://`，ICM HTTPS 端口（常见 44300）用 `https://`。客户端号就是登录 `sap-client`，必须与系统一致（系统是 300 却填 200 会 401 认证失败）；登录语言不确定时填 `EN`；内部自签证书系统保持「允许自签名证书」勾选。
+
+设置页的 **测试** 按钮现在与真实 SAP 工具同源（协议、客户端号、语言都一致）。早期版本把探活写死成 `node:https` 且只发 `X-sap-login-client` 头，会出现"http 端口永远探测失败"和"账号密码正确却报 401"的假阴性；401/403/404 分别给出客户端号与账号、ADT 权限、服务未激活的排查提示。
 
 ## 连接切换与会话自愈
 
@@ -44,7 +50,7 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.0.7
 
 ```bash
 cd packages/sapbuddy-dsh
-npm test                      # 激活核对 + 连接会话 + 连接配置接线回归
+npm test                      # 激活核对 + 连接会话 + 连接配置接线 + 连接探测 + 设置页 bundle
 npm pack --dry-run --ignore-scripts
 ```
 
@@ -54,8 +60,8 @@ npm pack --dry-run --ignore-scripts
 
 ```bash
 cd packages/sapbuddy-dsh
-npm pack --ignore-scripts                      # 生成 sapbuddy-dsh-0.0.7.tgz
-dsh plugin --profile desktop add ./sapbuddy-dsh-0.0.7.tgz
+npm pack --ignore-scripts                      # 生成 sapbuddy-dsh-0.0.8.tgz
+dsh plugin --profile desktop add ./sapbuddy-dsh-0.0.8.tgz
 ```
 
 安装后完整退出并重新启动 DSH 生效。

@@ -6,6 +6,7 @@
  * 密码/密钥永不出现在响应中（store 层脱敏）。
  */
 import type { IncomingMessage, ServerResponse } from "node:http"
+import http from "node:http"
 import https from "node:https"
 import {
   listConnections,
@@ -46,22 +47,96 @@ function readBody(req: IncomingMessage): Promise<unknown> {
   })
 }
 
+/** 把连接配置规范成一次 ADT 探活请求。
+ *
+ * 协议必须跟随配置里的 URL：SAP 的 ICM HTTP 端口（常见 8000）是 http，
+ * HTTPS 端口（常见 44300）才是 https；写死 https 会让 http 连接永远探测失败。
+ * 客户端号/语言用查询参数 `sap-client` / `sap-language` 传（与真实工具调用一致），
+ * 同时保留 `X-sap-login-client` 头兼容只认该头的系统。 */
+export function buildProbeRequest(conf: {
+  url?: string
+  username?: string
+  password?: string
+  client?: string
+  language?: string
+}): { error: string } | { scheme: "http" | "https"; url: URL; headers: Record<string, string> } {
+  const raw = String(conf.url ?? "").trim().replace(/\/+$/, "")
+  if (!/^https?:\/\//i.test(raw))
+    return {
+      error:
+        `连接地址要以 http:// 或 https:// 开头（当前是 "${raw || "(空)"}"）。` +
+        `例如 http://10.8.202.35:8000（ICM HTTP 端口）或 https://10.8.202.35:44300（HTTPS 端口）`,
+    }
+  let url: URL
+  try {
+    url = new URL(`${raw}/sap/bc/adt/compatibility/graph`)
+  } catch {
+    return { error: `连接地址不合法: ${raw}` }
+  }
+  const scheme = url.protocol === "https:" ? "https" : "http"
+  const qs = new URLSearchParams()
+  if (conf.client) qs.set("sap-client", String(conf.client))
+  if (conf.language) qs.set("sap-language", String(conf.language))
+  if ([...qs.keys()].length > 0) url.search = qs.toString()
+  const headers: Record<string, string> = {
+    Authorization: "Basic " + Buffer.from(`${conf.username}:${conf.password ?? ""}`).toString("base64"),
+    Accept: "*/*",
+  }
+  if (conf.client) headers["X-sap-login-client"] = String(conf.client)
+  return { scheme, url, headers }
+}
+
+/** 把探活拿到的 HTTP 状态码翻译成能直接照做的排查建议；null 表示成功 */
+export function describeProbeStatus(
+  status: number,
+  conf: { client?: string; username?: string; language?: string },
+): string | null {
+  if (status >= 200 && status < 300) return null
+  if (status === 401)
+    return (
+      "认证失败（HTTP 401）：服务器拒绝了账号/密码。按顺序排查：\n" +
+      `① 客户端号是否与系统一致（当前填的是 ${conf.client || "空"}，登录时作为 sap-client 发送）；\n` +
+      `② 用户名/密码是否正确、账号是否被锁或过期（当前用户 ${conf.username || "空"}）；\n` +
+      `③ 语言 ${conf.language || "空"} 是否为该账号可用语言（不确定先填 EN）；\n` +
+      "④ 该客户端是否允许 ADT 登录（SICF 里 /sap/bc/adt 的登录过程）。"
+    )
+  if (status === 403) return "HTTP 403：账号认证通过但无权访问 ADT，或 /sap/bc/adt 服务未激活/被限制。请让 BASIS 检查 SICF 与用户 ADT 权限。"
+  if (status === 404) return "HTTP 404：这个地址上没有 ADT 服务。确认端口是 SAP 的 HTTP/HTTPS 端口（8000/44300），且 /sap/bc/adt 已在 SICF 激活。"
+  if (status >= 500) return `HTTP ${status}：SAP 服务端错误（ICM/ADT 异常），请稍后重试或联系 BASIS。`
+  return `HTTP ${status}：未预期的响应，请检查地址与端口。`
+}
+
+/** 网络层失败时给出"协议/端口写反"这类最常见的提示 */
+function describeProbeFailure(message: string, scheme: "http" | "https"): string {
+  if (/wrong version number|SSL routines|EPROTO|packet length too long|socket hang up/i.test(message))
+    return (
+      `连接失败: ${message}\n` +
+      `协议和端口对不上：这个端口很可能是 ${scheme === "https" ? "纯 HTTP（用 http://）" : "HTTPS（用 https://）"}。` +
+      "SAP 的 ICM HTTP 端口（常见 8000）要用 http://，HTTPS 端口（常见 44300）要用 https://。"
+    )
+  if (/certificate|self-signed|SELF_SIGNED|CERT_|unable to verify/i.test(message))
+    return `连接失败: ${message}\n证书不被信任：内部/自签名证书请在连接里开启「允许自签名证书」。`
+  if (/ENOTFOUND|EAI_AGAIN/i.test(message)) return `连接失败: 主机名解析不了（${message}）。检查地址拼写，或改用 IP。`
+  if (/ECONNREFUSED/i.test(message)) return `连接失败: 端口没有监听（${message}）。检查端口号与 SAP 实例状态。`
+  if (/timeout|ETIMEDOUT|超时/i.test(message)) return `连接失败: 连接超时（${message}）。检查网络/防火墙是否放通该端口。`
+  return `连接失败: ${message}`
+}
+
 /** 测试连接：用连接明文凭据做一次 ADT 请求（结果只回状态码，不回敏感信息）。
- * 用 node:https 直连以支持 ssl.allowSelfSigned（Node fetch 不支持该选项）。 */
+ * 用 node:http/https 直连以支持 ssl.allowSelfSigned（Node fetch 不支持该选项）。 */
 async function testConnection(id: string): Promise<{ ok: boolean; status: number; message?: string }> {
   const c = getConnectionSecret(id)
   if (!c) return { ok: false, status: 0, message: `连接 ${id} 不存在` }
-  const url = new URL(`${String(c.url).replace(/\/+$/, "")}/sap/bc/adt/compatibility/graph`)
-  const auth = "Basic " + Buffer.from(`${c.username}:${c.password ?? ""}`).toString("base64")
-  const headers: Record<string, string> = { Authorization: auth, Accept: "*/*" }
-  if (c.client) headers["X-sap-login-client"] = c.client
+  const probe = buildProbeRequest(c)
+  if ("error" in probe) return { ok: false, status: 0, message: probe.error }
+  const transport = probe.scheme === "https" ? https : http
   try {
     const status = await new Promise<number>((resolve, reject) => {
-      const req = https.request(
-        url,
+      const req = transport.request(
+        probe.url,
         {
           method: "GET",
-          headers,
+          headers: probe.headers,
           rejectUnauthorized: !(c.ssl?.allowSelfSigned ?? false),
           timeout: 15_000,
         },
@@ -71,10 +146,10 @@ async function testConnection(id: string): Promise<{ ok: boolean; status: number
       req.on("error", reject)
       req.end()
     })
-    const ok = status >= 200 && status < 300
-    return { ok, status, message: ok ? "连接成功" : `认证失败（HTTP ${status}）：请检查账号/密码/客户端号，或 ADT 服务是否激活` }
+    const detail = describeProbeStatus(status, c)
+    return detail ? { ok: false, status, message: detail } : { ok: true, status, message: "连接成功" }
   } catch (e) {
-    return { ok: false, status: 0, message: `连接失败: ${e instanceof Error ? e.message : String(e)}` }
+    return { ok: false, status: 0, message: describeProbeFailure(e instanceof Error ? e.message : String(e), probe.scheme) }
   }
 }
 

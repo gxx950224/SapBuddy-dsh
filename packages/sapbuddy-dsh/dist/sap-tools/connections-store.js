@@ -55,10 +55,19 @@ function validate(input) {
         return "连接 ID 不能为空";
     if (!/^[A-Za-z0-9_-]+$/.test(id))
         return "连接 ID 只能包含字母/数字/下划线/连字符";
-    if (!String(input.url ?? "").trim())
+    const url = String(input.url ?? "").trim();
+    if (!url)
         return "连接地址（url）不能为空";
+    // 协议必须显式写：SAP 的 ICM HTTP 端口（常见 8000）是 http，HTTPS 端口（常见 44300）才是 https。
+    // 不写协议时真实工具与探测都会拿不到明确结论，干脆在保存时就拦下。
+    if (!/^https?:\/\//i.test(url))
+        return "连接地址要以 http:// 或 https:// 开头（ICM HTTP 端口常见 8000 用 http://，HTTPS 端口常见 44300 用 https://）";
     if (!String(input.username ?? "").trim())
         return "用户名不能为空";
+    // 客户端号就是登录时的 sap-client，填错（比如系统是 300 却填 200）会直接 401
+    const client = String(input.client ?? "").trim();
+    if (client && !/^\d{1,3}$/.test(client))
+        return "客户端号应为 1-3 位数字（如 100）";
     return undefined;
 }
 /** 新建或更新连接；更新时密码为空/'***' 保持原密码。返回 {ok} 或 {ok:false,error} */
@@ -72,12 +81,13 @@ export function saveConnection(input) {
     const password = input.password === undefined || input.password === "" || input.password === PASSWORD_MASK
         ? existing?.password ?? ""
         : input.password;
+    const rawClient = String(input.client ?? existing?.client ?? "").trim();
     const next = {
         ...existing,
         ...input,
         id,
         password,
-        client: String(input.client ?? existing?.client ?? "").trim(),
+        client: rawClient ? rawClient.padStart(3, "0") : rawClient,
         language: input.language ?? existing?.language ?? "ZH",
         authMethod: input.authMethod ?? existing?.authMethod ?? "basic",
     };

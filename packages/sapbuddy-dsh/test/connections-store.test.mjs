@@ -73,6 +73,20 @@ test('切换启用连接（activate）同样清空连接池', async () => {
     assert.equal(config.activeConnectionId(), 'qas');
 });
 
+test('地址必须写全协议；客户端号必须是 1-3 位数字并补齐为 3 位', async () => {
+    const noScheme = store.saveConnection(connection({ id: 'noscheme', url: '192.168.111.85:8000' }));
+    assert.equal(noScheme.ok, false);
+    assert.match(noScheme.error, /http:\/\//);
+
+    const badClient = store.saveConnection(connection({ id: 'badclient', client: 'AB' }));
+    assert.equal(badClient.ok, false);
+    assert.match(badClient.error, /客户端号/);
+
+    const padded = store.saveConnection(connection({ id: 'pad', client: '1' }));
+    assert.equal(padded.ok, true);
+    assert.equal(store.listConnections().find((c) => c.id === 'pad')?.client, '001');
+});
+
 test('删除连接同样清空连接池', async () => {
     created = [];
     assert.equal(store.saveConnection(connection({ id: 'dev' })).ok, true);

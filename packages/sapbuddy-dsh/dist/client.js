@@ -66,6 +66,7 @@ var S = {
   badge: { border: "1px solid var(--dsw-alias-border-l3)", color: "var(--dsw-alias-label-secondary)", borderRadius: 4, padding: "1px 6px", fontSize: 11, lineHeight: "16px", flex: "none" },
   badgeActive: { background: "var(--dsw-alias-state-success-primary)", borderColor: "var(--dsw-alias-state-success-primary)", color: "var(--dsw-alias-label-primary-foreground)" },
   meta: { margin: 0, fontSize: 12, lineHeight: "18px", color: "var(--dsw-alias-label-tertiary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  testMsg: { margin: 0, fontSize: 12, lineHeight: "18px", color: "var(--dsw-alias-label-secondary)", whiteSpace: "pre-wrap" },
   actions: { display: "flex", gap: 6, marginLeft: "auto", flex: "none" },
   btn: { height: 28, padding: "0 10px", borderRadius: 14, fontSize: 12, lineHeight: "18px", cursor: "pointer", border: "1px solid var(--dsw-alias-border-l2)", background: "transparent", color: "var(--dsw-alias-label-primary)", font: "inherit" },
   btnPrimary: { background: "var(--dsw-alias-button-primary-fill)", color: "var(--dsw-alias-label-primary-foreground)", border: "none" },
@@ -178,24 +179,38 @@ function Section() {
       { key: "m", style: S.meta },
       c.url + (c.client ? " \xB7 Client " + c.client : "") + " \xB7 " + c.username + (c.hasPassword ? " \xB7 \u5BC6\u7801\u5DF2\u8BBE\u7F6E" : " \xB7 \u672A\u8BBE\u7F6E\u5BC6\u7801")
     ),
-    testResult[c.id] ? React.createElement("p", { key: "tr", style: S.meta }, testResult[c.id]) : null
+    testResult[c.id] ? React.createElement("p", { key: "tr", style: S.testMsg }, testResult[c.id]) : null
   ]);
   const editor = React.createElement("div", { key: "editor", style: S.editor }, [
     React.createElement("div", { key: "g1", style: S.grid }, [
       input("id", "\u8FDE\u63A5 ID\uFF08\u552F\u4E00\uFF0C\u5982 dev/prod\uFF09", "dev"),
       input("name", "\u540D\u79F0", "\u5F00\u53D1\u7CFB\u7EDF"),
-      input("url", "\u5730\u5740\uFF08https://host:port\uFF09", "https://your-sap-host:44300"),
-      input("client", "\u5BA2\u6237\u7AEF\u53F7", "100")
+      input("url", "\u5730\u5740\uFF08http(s)://host:port\uFF09", "http://10.8.202.35:8000 \u6216 https://10.8.202.35:44300"),
+      input("client", "\u5BA2\u6237\u7AEF\u53F7\uFF083 \u4F4D\uFF0C\u5FC5\u987B\u4E0E\u7CFB\u7EDF\u4E00\u81F4\uFF09", "100")
     ]),
     React.createElement("div", { key: "g2", style: S.grid }, [
       input("username", "\u7528\u6237\u540D", "YOUR_USER"),
       input("password", "\u5BC6\u7801\uFF08\u7F16\u8F91\u65F6\u7559\u7A7A\u4FDD\u6301\u539F\u5BC6\u7801\uFF09", "\u2022\u2022\u2022\u2022\u2022\u2022"),
-      input("language", "\u8BED\u8A00", "ZH"),
+      input("language", "\u767B\u5F55\u8BED\u8A00\uFF08\u4E0D\u786E\u5B9A\u586B EN\uFF09", "ZH"),
       input("authMethod", "\u8BA4\u8BC1\u65B9\u5F0F", "basic")
     ]),
     React.createElement("div", { key: "g3", style: S.grid }, [
       input("description", "\u63CF\u8FF0", "\u5F00\u53D1\u7CFB\u7EDF")
     ]),
+    React.createElement("label", { key: "ssl", style: { ...S.field, flexDirection: "row", alignItems: "center", gap: 8 } }, [
+      React.createElement("input", {
+        key: "i",
+        type: "checkbox",
+        checked: !draft.ssl || draft.ssl.allowSelfSigned !== false,
+        onChange: (evt) => setDraft((d) => ({ ...d, ssl: { ...(d.ssl || {}), allowSelfSigned: evt.target.checked } }))
+      }),
+      React.createElement("span", { key: "l", style: S.label }, "\u5141\u8BB8\u81EA\u7B7E\u540D\u8BC1\u4E66\uFF08\u5185\u90E8\u7CFB\u7EDF https \u7528\uFF09")
+    ]),
+    React.createElement(
+      "p",
+      { key: "hint", style: S.hint },
+      "\u7AEF\u53E3\u5BF9\u5E94\u534F\u8BAE\uFF1ASAP \u7684 ICM HTTP \u7AEF\u53E3\uFF08\u5E38\u89C1 8000\uFF09\u7528 http://\uFF0CHTTPS \u7AEF\u53E3\uFF08\u5E38\u89C1 44300\uFF09\u7528 https://\u3002\u5BA2\u6237\u7AEF\u53F7\u5C31\u662F\u767B\u5F55\u5BA2\u6237\u7AEF\uFF08sap-client\uFF09\uFF0C\u586B\u9519\u4F1A\u8FD4\u56DE 401\uFF1B\u767B\u5F55\u8BED\u8A00\u4E0D\u786E\u5B9A\u65F6\u586B EN\u3002"
+    ),
     React.createElement("div", { key: "acts", style: { display: "flex", gap: 8, justifyContent: "flex-end" } }, [
       React.createElement("button", { key: "c", style: S.btn, onClick: () => {
         setMode(null);
@@ -209,7 +224,7 @@ function Section() {
     React.createElement(
       "p",
       { key: "i", style: S.intro },
-      "\u914D\u7F6E\u4E00\u4E2A\u6216\u591A\u4E2A SAP \u7CFB\u7EDF\u8FDE\u63A5\uFF08ADT\uFF09\u3002\u5207\u6362\u4E3A\u542F\u7528\u540E\uFF0CSapBuddy \u4F1A\u8BDD\u7684 SAP \u5DE5\u5177\u9ED8\u8BA4\u4F7F\u7528\u8BE5\u8FDE\u63A5\uFF1B\u5207\u6362\u540E\u9700\u5728\u4F1A\u8BDD\u4E2D\u5148\u8C03\u7528 get_connected_systems \u786E\u8BA4\u3002\u5BC6\u7801\u4EC5\u4FDD\u5B58\u5728\u672C\u673A\u914D\u7F6E\u6587\u4EF6\u3002"
+      "\u914D\u7F6E\u4E00\u4E2A\u6216\u591A\u4E2A SAP \u7CFB\u7EDF\u8FDE\u63A5\uFF08ADT\uFF09\u3002\u5207\u6362\u4E3A\u542F\u7528\u540E\uFF0CSapBuddy \u4F1A\u8BDD\u7684 SAP \u5DE5\u5177\u9ED8\u8BA4\u4F7F\u7528\u8BE5\u8FDE\u63A5\uFF1B\u5207\u6362\u540E\u9700\u5728\u4F1A\u8BDD\u4E2D\u5148\u8C03\u7528 get_connected_systems \u786E\u8BA4\u3002\u5BC6\u7801\u4EC5\u4FDD\u5B58\u5728\u672C\u673A\u914D\u7F6E\u6587\u4EF6\u3002\u5730\u5740\u8981\u5199\u5168\u534F\u8BAE\uFF1Ahttp:// \u7528\u4E8E ICM HTTP \u7AEF\u53E3\uFF08\u5E38\u89C1 8000\uFF09\uFF0Chttps:// \u7528\u4E8E HTTPS \u7AEF\u53E3\uFF08\u5E38\u89C1 44300\uFF09\u3002"
     ),
     msg ? React.createElement("p", { key: "m", style: S.msg }, msg) : null,
     err ? React.createElement("p", { key: "e", style: S.err }, err) : null,
