@@ -2,20 +2,20 @@
 
 [![npm](https://img.shields.io/npm/v/sapbuddy-dsh)](https://www.npmjs.com/package/sapbuddy-dsh) [GitHub](https://github.com/gxx950224/sapbuddy-dsh)
 
-SapBuddy 的 DeepSeek Harness 插件：41 个 SAP ABAP 工具、8 个技能、SapBuddy agent preset 和 SAP 连接设置页。支持对象搜索与读码、代码修改、语法诊断与激活、DDIC、传输请求及文本维护。
+SapBuddy 的 DeepSeek Harness 插件：41 个 SAP ABAP 工具、10 个技能、SapBuddy agent preset 和 SAP 连接设置页。支持对象搜索与读码、代码修改、语法诊断与激活、DDIC、传输请求及文本维护。技能现为 10 个，含 `sap-fs`（功能规格 FS）与 `grilling`（经 sap-fs 加载的追问）。
 
 ## 安装与升级
 
 在 DSH 的插件管理页添加：
 
 ```text
-sapbuddy-dsh@0.0.8
+sapbuddy-dsh@0.0.9
 ```
 
 或者使用 DSH 命令行：
 
 ```bash
-dsh plugin --profile desktop add sapbuddy-dsh@0.0.8
+dsh plugin --profile desktop add sapbuddy-dsh@0.0.9
 ```
 
 安装或更新后完整退出并重启 DSH，在设置页配置 SAP 连接，新建会话选择 **SapBuddy**。需要 Node.js 22+ 和兼容的 DSH，宿主依赖要求见[插件 package.json](packages/sapbuddy-dsh/package.json)。
@@ -30,9 +30,9 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.0.8
 
 ## 连接配置与排查
 
-地址必须写全协议，且协议要与端口一致：ICM HTTP 端口（常见 8000）用 `http://`，ICM HTTPS 端口（常见 44300）用 `https://`。客户端号就是登录 `sap-client`，必须与系统一致（系统是 300 却填 200 会 401 认证失败）；登录语言不确定时填 `EN`；内部自签证书系统保持「允许自签名证书」勾选。
+在 **设置 → SAP 连接** 中填写主机时须带协议，且与端口一致：HTTP 端口（常见 8000）用 `http://<host>:8000`，HTTPS 端口（常见 44300）用 `https://<host>:44300`。客户端号即 `sap-client`，须与目标客户端一致，否则会 401。语言不确定时填 `EN`；内网自签证书可勾选「允许自签名证书」。
 
-设置页的 **测试** 按钮现在与真实 SAP 工具同源（协议、客户端号、语言都一致）。早期版本把探活写死成 `node:https` 且只发 `X-sap-login-client` 头，会出现"http 端口永远探测失败"和"账号密码正确却报 401"的假阴性；401/403/404 分别给出客户端号与账号、ADT 权限、服务未激活的排查提示。
+设置页的 **测试** 与真实 SAP 工具同源。401 时核对客户端号、账号与语言；403/404 多为 ADT 权限或服务未开通。详见[插件使用说明](packages/sapbuddy-dsh/README.md)。
 
 ## 连接切换与会话自愈
 

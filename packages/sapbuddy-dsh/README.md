@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/sapbuddy-dsh)](https://www.npmjs.com/package/sapbuddy-dsh) [GitHub](https://github.com/gxx950224/sapbuddy-dsh)
 
-[SapBuddy](https://github.com/gxx950224/sapbuddy) 的 DeepSeek Harness 插件，提供 41 个 SAP ABAP 工具、8 个技能、SapBuddy agent preset 和 SAP 连接设置页。
+[SapBuddy](https://github.com/gxx950224/sapbuddy) 的 DeepSeek Harness 插件，提供 41 个 SAP ABAP 工具、10 个技能、SapBuddy agent preset 和 SAP 连接设置页。
 
 ## 安装
 
@@ -10,13 +10,13 @@
 在 DSH 的插件管理页添加：
 
 ```text
-sapbuddy-dsh@0.0.8
+sapbuddy-dsh@0.0.9
 ```
 
 也可以通过 DSH 命令行安装：
 
 ```bash
-dsh plugin --profile desktop add sapbuddy-dsh@0.0.8
+dsh plugin --profile desktop add sapbuddy-dsh@0.0.9
 ```
 
 更新已安装插件后，完整退出并重新启动 DSH，再新建会话选择 **SapBuddy**。
@@ -34,16 +34,16 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.0.8
 
 ## 连接配置与排查
 
-地址必须写全协议，协议要和端口一致：
+在 **设置 → SAP 连接** 中填写主机地址时，必须带协议，且协议与端口一致：
 
 | 端口 | 协议 | 示例 |
 |---|---|---|
-| ICM HTTP（常见 8000） | `http://` | `http://192.168.111.85:8000` |
-| ICM HTTPS（常见 44300） | `https://` | `https://10.8.202.35:44300` |
+| ICM HTTP（常见 8000） | `http://` | `http://<host>:8000` |
+| ICM HTTPS（常见 44300） | `https://` | `https://<host>:44300` |
 
-把 HTTP 端口写成 `https://`（或反过来）会在 TLS 阶段直接失败。客户端号就是登录用的 `sap-client`，必须与要登录的客户端一致——系统是 300 却填 200 会直接返回 401 认证失败；登录语言不确定时填 `EN`。内部系统若是自签名证书，编辑连接时保持「允许自签名证书」勾选。
+协议写错（例如 HTTP 端口却用 `https://`）会导致 TLS/连接失败。客户端号即登录用的 `sap-client`，必须与目标客户端一致，否则会返回 401。登录语言不确定时建议填 `EN`。内网自签名证书可勾选「允许自签名证书」。
 
-设置页的 **测试** 按钮与真实 SAP 工具走同一套协议/客户端号/语言（早期版本把探活写死成 https 且只发 `X-sap-login-client` 头，会出现"账号密码都对却报 401"或"http 端口永远探测失败"的假阴性）。测试返回 401 时按提示核对客户端号、账号状态与登录语言；403/404 多为 ADT 服务未激活或用户无权限。
+设置页的 **测试** 与真实 SAP 工具使用同一套协议、客户端号与语言。返回 401 时核对客户端号、账号与语言；403/404 多为 ADT 未开通或权限不足。
 
 ## 连接切换与会话自愈
 
@@ -57,7 +57,7 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.0.8
 
 工具涵盖对象搜索与读码、代码导航、语法诊断与激活、ATC 与单元测试、SQL 查询、DDIC、文本池、屏幕文本、消息类、函数模块接口和传输请求。
 
-技能包括 `abap-code-review`、`abap-explain`、`abap-templates`、`abap-wiki`、`clean-abap`、`dev-write`、`sap-abap-skills`、`translate-workflow`。
+技能包括 `abap-code-review`、`abap-explain`、`abap-templates`、`abap-wiki`、`clean-abap`、`dev-write`、`sap-abap-skills`、`translate-workflow`、`sap-fs`（四类 FS：MD + Claude 风 HTML）、`grilling`（经 sap-fs 加载的追问澄清）。
 
 ## 配置和写入保护
 
@@ -74,7 +74,7 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.0.8
 从 GitHub 克隆仓库后，在 `packages/sapbuddy-dsh` 下运行激活回归测试（需要 Node.js 24+，无需连接 SAP）：
 
 ```bash
-npm test                      # = test:activation + test:session + test:store + test:probe + test:route + test:bundle
+npm test                      # = test:activation + test:session + test:store + test:probe + test:route + test:bundle + test:sap-fs
 npm pack --dry-run --ignore-scripts
 ```
 

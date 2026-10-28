@@ -1,7 +1,7 @@
 {
   "name": "sapbuddy-dsh",
-  "version": "0.0.8",
-  "description": "SapBuddy —— SAP ABAP AI 全能助手（DeepSeek Harness 插件）：41 个 SAP 工具 + 8 个 ABAP 技能 + SapBuddy preset + 连接设置页。一个包名装完。",
+  "version": "0.0.9",
+  "description": "SapBuddy —— SAP ABAP AI 全能助手（DeepSeek Harness 插件）：41 个 SAP 工具 + 10 个 ABAP 技能 + SapBuddy preset + 连接设置页。一个包名装完。",
   "type": "module",
   "main": "dist/index.js",
   "exports": {
@@ -77,13 +77,14 @@
     "typescript": "^5.6.0"
   },
   "scripts": {
-    "test": "npm run test:activation && npm run test:session && npm run test:store && npm run test:probe && npm run test:route && npm run test:bundle",
+    "test": "npm run test:activation && npm run test:session && npm run test:store && npm run test:probe && npm run test:route && npm run test:bundle && npm run test:sap-fs",
     "test:activation": "node --experimental-vm-modules --test --test-isolation=none test/activation.test.mjs",
     "test:session": "node --experimental-vm-modules --test --test-isolation=none test/session-recovery.test.mjs",
     "test:store": "node --test --test-isolation=none test/connections-store.test.mjs",
     "test:probe": "node --test --test-isolation=none test/connection-probe.test.mjs",
     "test:route": "node --test --test-isolation=none test/connection-test-route.test.mjs",
-    "test:bundle": "node --test --test-isolation=none test/client-bundle.test.mjs"
+    "test:bundle": "node --test --test-isolation=none test/client-bundle.test.mjs",
+    "test:sap-fs": "node --test --test-isolation=none test/sap-fs/loading.test.mjs"
   },
   "publishConfig": {
     "access": "public"
