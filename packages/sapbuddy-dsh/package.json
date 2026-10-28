@@ -1,6 +1,6 @@
 {
   "name": "sapbuddy-dsh",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "SapBuddy —— SAP ABAP AI 全能助手（DeepSeek Harness 插件）：41 个 SAP 工具 + 10 个 ABAP 技能 + SapBuddy preset + 连接设置页。一个包名装完。",
   "type": "module",
   "main": "dist/index.js",

@@ -10,13 +10,13 @@
 在 DSH 的插件管理页添加：
 
 ```text
-sapbuddy-dsh@0.0.9
+sapbuddy-dsh@0.0.10
 ```
 
 也可以通过 DSH 命令行安装：
 
 ```bash
-dsh plugin --profile desktop add sapbuddy-dsh@0.0.9
+dsh plugin --profile desktop add sapbuddy-dsh@0.0.10
 ```
 
 更新已安装插件后，完整退出并重新启动 DSH，再新建会话选择 **SapBuddy**。
