@@ -1,9 +1,21 @@
 import { executionSignal, checkCancelled, runCleanup, waitForReady } from "./execution.js";
 import { createManagedAdtClient } from "./http-client.js";
-import { createSSLConfig } from "abap-adt-api";
+import { createSSLConfig, session_types } from "abap-adt-api";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { getConfig } from "./config.js";
 const pool = new Map();
+/** 会话"新鲜度"：该连接最近一次确认可用（login 成功）的时间戳。
+ *  写操作前据此决定是否重新登录——见 ensureFreshSession。 */
+const sessionOkAt = new Map();
+/** 写操作复用同一会话的时间窗。超过它就重登录，换一份新的 cookie + CSRF 令牌。
+ *  SAP 侧会话空闲超时（ICM/ADT 会话）后 cookie 与令牌都会失效，而 stateful 写请求
+ *  不会被 SDK 自动重建，于是出现"读正常、写一律 CSRF 令牌验证失败"的僵局。
+ *  5 分钟足以覆盖一轮连续写（create→replace→activate），又不至于拿着可能过期的会话去写。 */
+const SESSION_REUSE_MS = 5 * 60_000;
+/** 刷新会话（重新登录）的单独时限：写序列在独占锁内，登录不能吃掉整段写的时间预算 */
+const SESSION_LOGIN_TIMEOUT_MS = 30_000;
+/** 连接配置版本号：resetClients() 递增，写序列据此判断"重试期间用户是否切了系统" */
+let configEpoch = 0;
 /**
  * 每连接读写门（reader-writer gate）：
  * - 读（stateless 查询，如 searchObject/getObjectSource/runQuery）可并发，但每个连接最多
@@ -167,17 +179,44 @@ export function withAllConnMutex(fn) {
 }
 /**
  * 标记连接为不健康：从池中移除缓存（客户端 + 类别），下次调用自动重新 login。
- * 会话自愈的核心——连接级故障（401/5xx/网络错误）不保留坏会话，宁可重连。
+ * 会话自愈的核心——连接级故障（401/5xx/网络错误/CSRF 令牌失效）不保留坏会话，宁可重连。
  */
 export function markConnectionUnhealthy(connId) {
     const id = connId.toLowerCase();
     pool.delete(id);
     clientCategoryCache.delete(id);
+    sessionOkAt.delete(id);
 }
-/** 判断是否连接级故障（会话失效/网络断了），而非业务错误 */
+/** abap-adt-api 的 AdtCsrfException 只带一个 Symbol typeID，没有 status/code */
+const CSRF_TYPE_ID = Symbol.for("BAD CSRF");
+/**
+ * 是否 CSRF 令牌校验失败。
+ * 注意：SDK 的 AdtCsrfException 是裸 Error（没有 status），所以 isConnectionError
+ * 靠 status/网络关键字判断时会漏掉它——这正是"会话坏了却永远不重连"的根源。
+ */
+export function isCsrfError(err) {
+    if (!err || typeof err !== "object")
+        return false;
+    try {
+        if (err.typeID === CSRF_TYPE_ID)
+            return true;
+    }
+    catch { /* getter 抛错按非 CSRF 处理 */ }
+    const msg = `${err.message ?? ""} ${err.parent?.message ?? ""}`;
+    return /CSRF/i.test(msg);
+}
+/** 写工具把 SAP 错误文本当返回值（不抛异常）时，从文本里识别 CSRF 令牌校验失败。
+ *  只认令牌校验：这类请求在 SAP 侧一定没有执行，重放才是安全的；
+ *  "会话已失效/会话已过期"这类说法不保证请求未执行，不能据此重放写操作。 */
+function isCsrfFailureText(text) {
+    return /CSRF|令牌验证/i.test(String(text).slice(0, 800));
+}
+/** 判断是否连接级故障（会话失效/网络断了/CSRF 令牌失效），而非业务错误 */
 export function isConnectionError(err) {
     if (!(err instanceof Error))
         return false;
+    if (isCsrfError(err))
+        return true;
     const status = err.status;
     if (typeof status === "number")
         return status === 401 || status === 403 || status >= 500;
@@ -267,6 +306,23 @@ const READ_METHODS = new Set([
     "abapDocumentation",
     "objectEnhancements",
 ]);
+/** 记录"当前写序列里已经成功执行过会改数据的方法"，用于判断 CSRF 重试是否安全。
+ *  CSRF 校验失败的请求在 SAP 侧没有执行，但只要本序列已经成功跑过 lock/setObjectSource
+ *  这类会落库的调用，重试就可能重复写入或留下编辑锁，此时绝不重试。 */
+const writeProgress = new AsyncLocalStorage();
+/** 不属于"会改数据"的会话维护方法：它们成功不代表 SAP 侧已有改动 */
+const SESSION_ONLY_METHODS = new Set(["login", "logout", "dropSession", "keepAlive"]);
+function noteCallSuccess(methodName) {
+    if (READ_METHODS.has(methodName) || SESSION_ONLY_METHODS.has(methodName))
+        return;
+    const store = writeProgress.getStore();
+    if (store)
+        store.modifying++;
+}
+/** 返回值里出现这些标记，说明本次写已经落库，绝不能再重放 */
+function looksApplied(text) {
+    return /✅|已保存|已写入|已创建|已激活/.test(String(text).slice(0, 800));
+}
 function wrapSelfHeal(client, connId) {
     return new Proxy(client, {
         get(target, prop, receiver) {
@@ -280,12 +336,13 @@ function wrapSelfHeal(client, connId) {
                     try {
                         const result = value.apply(target, args);
                         if (result && typeof result.then === "function") {
-                            return result.catch((err) => {
+                            return result.then((ok) => { noteCallSuccess(m); return ok; }, (err) => {
                                 if (isConnectionError(err))
                                     markConnectionUnhealthy(connId);
                                 throw err;
                             });
                         }
+                        noteCallSuccess(m);
                         return result;
                     }
                     catch (err) {
@@ -380,6 +437,10 @@ let clientFactoryOverride = null;
 export function __setClientFactoryForTest(fn) {
     clientFactoryOverride = fn;
 }
+/** 测试专用：伪造连接会话"最近确认可用"的时间戳（验证会话保鲜窗口，生产勿调） */
+export function __setSessionFreshAtForTest(connId, timestamp) {
+    sessionOkAt.set(connId.toLowerCase(), timestamp);
+}
 function createAdtClient(conf) {
     if (clientFactoryOverride)
         return clientFactoryOverride(conf);
@@ -426,16 +487,120 @@ export function getClient(connId) {
     let managed = pool.get(conf.id);
     if (!managed) {
         const client = createAdtClient(conf);
-        const ready = client.login().catch((err) => {
-            // 登录失败时移除缓存，允许下次重试
-            pool.delete(conf.id);
+        const entry = { client, ready: undefined };
+        // 登录失败时移除缓存，允许下次重试；只清理"自己这一条"，避免并发登录失败把新建的健康条目挤掉
+        entry.ready = client.login().then(() => { sessionOkAt.set(conf.id, Date.now()); }).catch((err) => {
+            if (pool.get(conf.id) === entry) {
+                pool.delete(conf.id);
+                sessionOkAt.delete(conf.id);
+            }
             throw err;
         });
-        managed = { client, ready };
-        pool.set(conf.id, managed);
+        pool.set(conf.id, entry);
+        managed = entry;
     }
     // 包自愈代理：连接级故障自动标记不健康 → 下次调用重新 login
     return waitForReady(managed.ready).then(() => { checkCancelled(); return wrapSelfHeal(managed.client, conf.id); });
+}
+/**
+ * 写序列前把会话切换到"确定新鲜"的状态，返回可直接使用的客户端。
+ *
+ * 为什么必须显式做：
+ * - 池里的客户端跨系统切换/长时间空闲后仍在复用，其 SAP 会话（cookie + CSRF 令牌）
+ *   已经失效；读请求之所以看起来正常，是 abap-adt-api 在 stateless 模式下捕获
+ *   401/CSRF 后自动 login 再重试了一次。
+ * - 写请求（lock→setObjectSource→unLock）必须 stateful，而 SDK 的自动重建条件里
+ *   有 `!this.isStateful`——stateful 下它不会重登录，于是同一个坏令牌让每次写都报
+ *   "CSRF 令牌验证失败"，读却一直正常。
+ *
+ * 做法：先把残留的 stateful 会话压回 stateless（否则 SDK 连自动重试都不会做），
+ * 会话超过 maxAgeMs 没被确认可用就重新 login（清空 cookie + 换新 CSRF 令牌）。
+ */
+export async function ensureFreshSession(connId, maxAgeMs = SESSION_REUSE_MS) {
+    const id = connId.toLowerCase();
+    const client = await getClient(id);
+    checkCancelled();
+    try {
+        if (client.stateful === session_types.stateful)
+            client.stateful = session_types.stateless;
+    }
+    catch { /* 克隆客户端禁止切换 stateful，忽略即可 */ }
+    const last = sessionOkAt.get(id) ?? 0;
+    if (Date.now() - last <= maxAgeMs)
+        return client;
+    let login;
+    let timer;
+    try {
+        login = client.login();
+        await Promise.race([
+            login,
+            new Promise((_, reject) => {
+                timer = setTimeout(() => reject(new Error(`刷新 SAP 会话超时（${Math.round(SESSION_LOGIN_TIMEOUT_MS / 1000)}s 未完成登录）`)), SESSION_LOGIN_TIMEOUT_MS);
+            }),
+        ]);
+        sessionOkAt.set(id, Date.now());
+    }
+    catch (err) {
+        login?.catch(() => undefined); // 超时后原登录可能继续，别留下未处理的 rejection
+        // 登录失败不保留坏会话，下次调用重新走一遍
+        markConnectionUnhealthy(id);
+        throw err;
+    }
+    finally {
+        clearTimeout(timer);
+    }
+    return client;
+}
+/**
+ * 连接配置变更（切换系统/改地址/改账号）后立刻失效所有池化会话，不发起网络请求。
+ * 不清池的后果：新连接复用旧系统的 cookie/CSRF 令牌，读写都会打到旧系统或直接被 SAP 拒绝。
+ */
+export function resetClients() {
+    pool.clear();
+    clientCategoryCache.clear();
+    sessionOkAt.clear();
+    configEpoch++;
+}
+/**
+ * 写操作统一入口：独占锁 + 会话保鲜 + CSRF/会话失效时自动重建一次。
+ * CSRF 校验失败的请求在 SAP 侧根本没有执行，所以重建连接后整体重试一次是安全的；
+ * 这样"切换系统后第一次写"不会再把错误直接抛给用户。
+ */
+export async function runWriteWithRecovery(connId, run) {
+    const id = connId.toLowerCase();
+    // 配置在本序列期间被改动（用户切了系统）时不能重试：重试会拿旧 payload 打到新系统上
+    const epoch = configEpoch;
+    let progress;
+    const attempt = () => {
+        progress = { modifying: 0 };
+        return withConnMutex(id, () => writeProgress.run(progress, async () => {
+            // 持锁后再确认一次连接配置没被换掉：重试绝不能把旧 payload 打到新系统上
+            if (configEpoch !== epoch)
+                throw new Error("SAP 连接配置已变更，已放弃本次写操作；请先调用 get_connected_systems 确认当前连接后再重试。");
+            await ensureFreshSession(id);
+            return run();
+        }));
+    };
+    /** 只有"SAP 侧还没落过任何改动"且连接配置没变，才允许重建连接重试一次 */
+    const canRetry = () => (progress?.modifying ?? 0) === 0 && configEpoch === epoch;
+    let text;
+    try {
+        text = await attempt();
+    }
+    catch (err) {
+        if (!isCsrfError(err) || !canRetry())
+            throw err;
+        markConnectionUnhealthy(id);
+        return attempt();
+    }
+    if (typeof text === "string" && isCsrfFailureText(text) && !looksApplied(text)) {
+        // 写工具多数把 SAP 错误转成返回值（不抛异常），这里同样识别一次
+        if (!canRetry())
+            return text;
+        markConnectionUnhealthy(id);
+        return attempt();
+    }
+    return text;
 }
 /** 释放指定连接（用于测试/连接重置） */
 export async function dropClient(connId) {
@@ -445,11 +610,13 @@ export async function dropClient(connId) {
     await managed.client.dropSession().catch(() => undefined);
     pool.delete(connId.toLowerCase());
     clientCategoryCache.delete(connId.toLowerCase());
+    sessionOkAt.delete(connId.toLowerCase());
 }
 /** 释放所有连接 */
 export async function dropAllClients() {
     await Promise.all([...pool.keys()].map(dropClient));
     clientCategoryCache.clear();
+    sessionOkAt.clear();
 }
 // ── 连接变更后的强制重确认 ──
 // 连接配置被保存（/api/sap-config）后置脏。除 get_connected_systems 外所有 SAP 工具

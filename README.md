@@ -9,13 +9,13 @@ SapBuddy 的 DeepSeek Harness 插件：41 个 SAP ABAP 工具、8 个技能、Sa
 在 DSH 的插件管理页添加：
 
 ```text
-sapbuddy-dsh@0.0.6
+sapbuddy-dsh@0.0.7
 ```
 
 或者使用 DSH 命令行：
 
 ```bash
-dsh plugin --profile desktop add sapbuddy-dsh@0.0.6
+dsh plugin --profile desktop add sapbuddy-dsh@0.0.7
 ```
 
 安装或更新后完整退出并重启 DSH，在设置页配置 SAP 连接，新建会话选择 **SapBuddy**。需要 Node.js 22+ 和兼容的 DSH，宿主依赖要求见[插件 package.json](packages/sapbuddy-dsh/package.json)。
@@ -27,6 +27,10 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.0.6
 激活阶段报错后，工具仍会核对 active 源码与实时未激活对象清单。只有确认本次源码已生效、目标及相关对象没有未激活版本时，才清零该对象连续失败计数，本次也不再登记审计失败。INCLUDE 的原始报错仍作为诊断保留。
 
 旧 active 版本、相关对象仍未激活或状态查询失败不会被当作成功。详见[插件使用说明](packages/sapbuddy-dsh/README.md)。
+
+## 连接切换与会话自愈
+
+切换或保存 SAP 连接后，插件立刻作废进程内池化的 ADT 客户端，下一次调用按新配置重新登录；写序列进入前还会刷新会话，识别到 CSRF/会话失效时重建连接并重试一次。因此切换系统后不会再出现"读源码正常、写入一直报 `CSRF 令牌验证失败`、必须重启 DSH"的情况，详见[插件使用说明](packages/sapbuddy-dsh/README.md)。
 
 ## 仓库结构
 
@@ -40,11 +44,21 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.0.6
 
 ```bash
 cd packages/sapbuddy-dsh
-npm run test:activation
+npm test                      # 激活核对 + 连接会话 + 连接配置接线回归
 npm pack --dry-run --ignore-scripts
 ```
 
 回归测试需要 Node.js 24+，模拟 SAP 响应，不执行真实 SAP 写入。实际 SAP 系统的联机验收需要单独完成。
+
+本地改完还没发布时，可以直接把 `packages/sapbuddy-dsh` 打成 tgz 装进 profile：
+
+```bash
+cd packages/sapbuddy-dsh
+npm pack --ignore-scripts                      # 生成 sapbuddy-dsh-0.0.7.tgz
+dsh plugin --profile desktop add ./sapbuddy-dsh-0.0.7.tgz
+```
+
+安装后完整退出并重新启动 DSH 生效。
 
 ## 配置与保护
 

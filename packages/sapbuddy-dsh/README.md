@@ -10,13 +10,13 @@
 在 DSH 的插件管理页添加：
 
 ```text
-sapbuddy-dsh@0.0.6
+sapbuddy-dsh@0.0.7
 ```
 
 也可以通过 DSH 命令行安装：
 
 ```bash
-dsh plugin --profile desktop add sapbuddy-dsh@0.0.6
+dsh plugin --profile desktop add sapbuddy-dsh@0.0.7
 ```
 
 更新已安装插件后，完整退出并重新启动 DSH，再新建会话选择 **SapBuddy**。
@@ -31,6 +31,14 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.0.6
 例如 INCLUDE 阶段报错，后续主程序实际已经激活：只有 active 源码与激活前快照一致，并且实时未激活清单中没有目标、直接引用的 INCLUDE 或激活响应中报告的未激活对象时，才确认成功并清零该对象的连续失败计数。原始阶段诊断保留，本次不再登记为审计失败。
 
 源码不一致、相关对象仍未激活或核对查询失败时，继续保留失败。对象元数据中的 `active` 字段不能单独证明本次修改已生效。非源码对象沿用其激活接口结果。
+
+## 连接切换与会话自愈
+
+切换或保存 SAP 连接后，插件会立刻作废进程内池化的 ADT 客户端，下一次调用按新配置重新登录，不会带着上一个系统的 cookie 与 CSRF 令牌去读写当前系统。
+
+写操作（编辑、激活、DDIC、传输等）在进入独占写序列前会刷新会话：会话超过 5 分钟没有被确认可用就先重新登录（清空 cookie、换一份新的 CSRF 令牌）。原因是 ABAP 侧的会话空闲超时会让旧令牌失效，而 ADT 客户端 SDK 只在无状态（stateless）请求上自动重登录——有状态写请求不会，于是会出现"读源码正常、每次写都报 `CSRF 令牌验证失败`"的僵局。
+
+如果写请求仍然收到 CSRF 或会话失效错误（例如 ABAP 侧刚重启），插件会丢弃该会话、重建连接并整体重试一次。CSRF 校验失败的请求在 SAP 侧不会执行，因此重试不会造成重复写入。上述恢复对工具层透明，不需要重启 DSH，也不需要重新切换连接。
 
 ## 工具与技能
 
@@ -53,11 +61,11 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.0.6
 从 GitHub 克隆仓库后，在 `packages/sapbuddy-dsh` 下运行激活回归测试（需要 Node.js 24+，无需连接 SAP）：
 
 ```bash
-npm run test:activation
+npm test                      # = test:activation + test:session + test:store
 npm pack --dry-run --ignore-scripts
 ```
 
-回归测试使用模拟 SAP 响应，覆盖误报恢复、失败计数、审计记录和核对失败边界；不能替代真实 SAP 联机验收。
+`test:activation` 覆盖激活结果核对的误报恢复、失败计数、审计记录和核对失败边界；`test:session` 覆盖写前会话刷新、CSRF 失效自动重建，以及"已落库则绝不重试"的边界；`test:store` 用真实模块验证设置页保存/切换/删除连接确实会作废连接池。测试都使用模拟 SAP 响应，不能替代真实 SAP 联机验收。
 
 ## 许可证
 

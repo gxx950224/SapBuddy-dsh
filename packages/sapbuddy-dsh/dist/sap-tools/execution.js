@@ -21,7 +21,7 @@ export function classifyFailure(error) {
         : /timeout|timedout|超时/i.test(message) ? "TIMEOUT"
             : status === 401 || status === 403 || /无权限|permission|unauthorized|forbidden/i.test(message) ? "PERMISSION"
                 : status === 404 || /未找到|不存在|not found/i.test(message) ? "NOT_FOUND"
-                    : /ECONN|ENOTFOUND|EPIPE|socket|network|fetch failed|连接失败|TLS|CERT_/i.test(message) || status >= 500 ? "CONNECTION"
+                    : /ECONN|ENOTFOUND|EPIPE|socket|network|fetch failed|连接失败|TLS|CERT_|CSRF|令牌验证/i.test(message) || status >= 500 ? "CONNECTION"
                         : /参数|invalid|无效/i.test(message) ? "INVALID_ARGUMENT" : "TOOL_ERROR";
     return { code, retryable: code === "CONNECTION" || code === "TIMEOUT", message: message.replace(/<stack>[\s\S]*?<\/stack>/gi, "[堆栈已省略]").slice(0, 600) };
 }

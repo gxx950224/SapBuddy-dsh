@@ -24,7 +24,7 @@ import { installWriteGate } from "./sap-tools/gate.js";
 import { installPromptFiles } from "./sap-tools/prompt-files.js";
 import { ensureSapbuddyHome } from "./sap-tools/sapbuddy-home.js";
 import { extractObjectNames } from "./sap-tools/register.js";
-import { isConnectionDirty, assertDevClient, withConnMutex } from "./sap-tools/adtManager.js";
+import { isConnectionDirty, assertDevClient, runWriteWithRecovery } from "./sap-tools/adtManager.js";
 import { resolveConnectionId } from "./sap-tools/tools/shared.js";
 import { appendAudit } from "./sap-tools/auditLog.js";
 /** 写工具清单（供门禁与工具列表使用；与 pi 版 WRITE_TOOL_NAMES 同源） */
@@ -56,10 +56,12 @@ function registerOne(registry, t) {
                     if (t.name !== "get_connected_systems" && isConnectionDirty()) {
                         return "⛔ SAP 连接配置已变更，必须先调用 get_connected_systems 确认当前连接，然后再重试本操作。";
                     }
-                    // 写工具在连接互斥锁内执行（lock→改→存→激活 原子）；读工具直接执行
+                    // 写工具在连接互斥锁内执行（lock→改→存→激活 原子），并在写前刷新会话：
+                    // 连接切换/空闲过久后池里的 CSRF 令牌已失效，stateful 写不会被 SDK 自动重建，
+                    // 必须在进入写序列前重登录（见 adtManager.runWriteWithRecovery）。
                     const connId = await resolveConnectionId(p.connectionId);
                     const text = t.write
-                        ? await withConnMutex(connId, async () => {
+                        ? await runWriteWithRecovery(connId, async () => {
                             // 写操作安全守卫：非开发客户端（T000.CCCATEGORY）拒绝一切代码修改
                             await assertDevClient(connId);
                             return t.execute(p);

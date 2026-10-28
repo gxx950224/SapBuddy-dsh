@@ -1,6 +1,6 @@
 {
   "name": "sapbuddy-dsh",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "SapBuddy —— SAP ABAP AI 全能助手（DeepSeek Harness 插件）：41 个 SAP 工具 + 8 个 ABAP 技能 + SapBuddy preset + 连接设置页。一个包名装完。",
   "type": "module",
   "main": "dist/index.js",
@@ -77,8 +77,10 @@
     "typescript": "^5.6.0"
   },
   "scripts": {
-    "test": "npm run test:activation",
-    "test:activation": "node --experimental-vm-modules --test --test-isolation=none test/activation.test.mjs"
+    "test": "npm run test:activation && npm run test:session && npm run test:store",
+    "test:activation": "node --experimental-vm-modules --test --test-isolation=none test/activation.test.mjs",
+    "test:session": "node --experimental-vm-modules --test --test-isolation=none test/session-recovery.test.mjs",
+    "test:store": "node --test --test-isolation=none test/connections-store.test.mjs"
   },
   "publishConfig": {
     "access": "public"

@@ -10,7 +10,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 import { sapbuddyPath } from "./sapbuddy-home.js"
-import { markConnectionDirty } from "./adtManager.js"
+import { markConnectionDirty, resetClients } from "./adtManager.js"
 import { reloadConfig } from "./config.js"
 
 export interface ConnectionInput {
@@ -59,6 +59,9 @@ function writeRaw(file: RawFile): void {
   // 配置变更：失效工具层缓存 + 标记连接变更（工具层要求 get_connected_systems 重确认）
   try { reloadConfig() } catch { /* 无连接或文件刚建，忽略 */ }
   markConnectionDirty()
+  // 池化的 ADT 客户端必须整体作废：切换系统/改地址/改账号后继续复用旧客户端，
+  // 会带着上一个系统的 cookie 与 CSRF 令牌去写当前系统（SAP 直接拒绝 CSRF 校验）。
+  resetClients()
 }
 
 /** 全部连接（脱敏视图） */

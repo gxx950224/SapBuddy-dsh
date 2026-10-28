@@ -17,8 +17,16 @@ export declare function withAllConnMutex<T>(fn: () => Promise<T>): Promise<T>;
  * 会话自愈的核心——连接级故障（401/5xx/网络错误）不保留坏会话，宁可重连。
  */
 export declare function markConnectionUnhealthy(connId: string): void;
-/** 判断是否连接级故障（会话失效/网络断了），而非业务错误 */
+/** 判断是否连接级故障（会话失效/网络断了/CSRF 令牌失效），而非业务错误 */
 export declare function isConnectionError(err: unknown): boolean;
+/** 是否 CSRF 令牌校验失败（SDK 的 AdtCsrfException 是裸 Error，没有 status，需单独识别） */
+export declare function isCsrfError(err: unknown): boolean;
+/** 写序列前确保会话新鲜：残留 stateful 压回 stateless，会话超过 maxAgeMs 未确认可用就重新 login */
+export declare function ensureFreshSession(connId: string, maxAgeMs?: number): Promise<ADTClient>;
+/** 连接配置变更后立刻作废所有池化会话（同步、不联网），下次调用重新登录 */
+export declare function resetClients(): void;
+/** 写操作统一入口：独占锁 + 会话保鲜 + CSRF/会话失效时自动重建一次 */
+export declare function runWriteWithRecovery<T>(connId: string, run: () => Promise<T>): Promise<T>;
 /**
  * 获取客户端类别（T000.CCCATEGORY），按连接缓存
  * 查询失败时抛出（fail-closed）
@@ -37,6 +45,8 @@ export declare const CLIENT_CATEGORY_LABELS: Record<string, string>;
 export declare function assertDevClient(connId: string): Promise<void>;
 /** 测试专用：注入假客户端工厂（仅单测验证错误路径用，生产勿调） */
 export declare function __setClientFactoryForTest(fn: ((conf: ConnectionConfig) => ADTClient) | null): void;
+/** 测试专用：伪造连接会话"最近确认可用"的时间戳（验证会话保鲜窗口，生产勿调） */
+export declare function __setSessionFreshAtForTest(connId: string, timestamp: number): void;
 export declare function getConnection(id: string): ConnectionConfig;
 /** 获取（并懒初始化）ADTClient，自动 login */
 export declare function getClient(connId: string): Promise<ADTClient>;

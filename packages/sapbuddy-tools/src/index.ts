@@ -13,7 +13,7 @@ import { zodToParameterSpec } from "./sap-tools/zod-to-spec.js"
 import { installWriteGate } from "./sap-tools/gate.js"
 import { installPromptFiles } from "./sap-tools/prompt-files.js"
 import { scanCodeViolations, extractObjectNames } from "./sap-tools/register.js"
-import { isConnectionDirty, assertDevClient, withConnMutex } from "./sap-tools/adtManager.js"
+import { isConnectionDirty, assertDevClient, runWriteWithRecovery } from "./sap-tools/adtManager.js"
 import { resolveConnectionId } from "./sap-tools/tools/shared.js"
 import { appendAudit } from "./sap-tools/auditLog.js"
 
@@ -59,10 +59,12 @@ function registerOne(registry: { register: (def: unknown) => () => void }, t: To
                 }
               }
             }
-            // 写工具在连接互斥锁内执行（lock→改→存→激活 原子）；读工具直接执行
+            // 写工具在连接互斥锁内执行（lock→改→存→激活 原子），并在写前刷新会话：
+            // 连接切换/空闲过久后池里的 CSRF 令牌已失效，stateful 写不会被 SDK 自动重建，
+            // 必须在进入写序列前重登录（见 adtManager.runWriteWithRecovery）。
             const connId = await resolveConnectionId(p.connectionId as string | undefined)
             const text = t.write
-              ? await withConnMutex(connId, async () => {
+              ? await runWriteWithRecovery(connId, async () => {
                   // 写操作安全守卫：非开发客户端（T000.CCCATEGORY）拒绝一切代码修改
                   await assertDevClient(connId)
                   return t.execute(p)
