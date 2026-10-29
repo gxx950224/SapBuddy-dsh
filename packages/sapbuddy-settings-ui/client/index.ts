@@ -61,6 +61,25 @@ const S = {
 
 const EMPTY = { language: "ZH", authMethod: "basic", ssl: { allowSelfSigned: true } }
 
+// 地址拆成「协议 + 主机 + 端口」三段填写，保存时拼回完整 url。
+// SAP ICM：HTTPS 常见 44300，HTTP 常见 8000。
+const DEFAULT_PORT = { https: "44300", http: "8000" }
+const ADDRESS_HINT = "https://主机:44300"
+
+function parseAddress(url) {
+  const m = /^\s*(https?):\/\/([^/:?#\s]+)(?::(\d+))?/i.exec(String(url ?? ""))
+  if (!m) return { protocol: "https", host: "", port: DEFAULT_PORT.https }
+  const protocol = m[1].toLowerCase()
+  return { protocol, host: m[2], port: m[3] || DEFAULT_PORT[protocol] }
+}
+
+function buildAddress(d) {
+  const protocol = d.protocol === "http" ? "http" : "https"
+  const host = String(d.host ?? "").trim().replace(/^https?:\/\//i, "").replace(/[/:?#].*$/, "")
+  const port = String(d.port ?? "").trim() || DEFAULT_PORT[protocol]
+  return host ? protocol + "://" + host + ":" + port : ""
+}
+
 function Section() {
   const [conns, setConns] = useState([])
   const [mode, setMode] = useState(null) // null | "new" | <id 编辑>
@@ -83,7 +102,12 @@ function Section() {
   const save = async () => {
     setBusy(true)
     try {
-      const r = await post(API, { connection: draft })
+      const { protocol, host, port, ...rest } = draft
+      const url = buildAddress(draft)
+      if (!url) { setErr("请填写主机"); setMsg(null); return }
+      const connection = { ...rest, url }
+      if (protocol === "http") delete connection.ssl
+      const r = await post(API, { connection })
       if (!r.ok) { setErr("保存失败: " + (r.error ?? "未知错误")); setMsg(null); return }
       setMsg("已保存连接 " + r.id); setErr(null)
       setMode(null); setDraft({})
@@ -107,8 +131,40 @@ function Section() {
     setTestResult((m) => ({ ...m, [id]: r.ok ? "✅ 连接成功（HTTP " + r.status + "）" : "❌ " + (r.error ?? "测试失败") }))
   }
 
-  const startNew = () => { setMode("new"); setDraft({ ...EMPTY }) }
-  const startEdit = (c) => { setMode(c.id); setDraft({ ...c, password: "" }) }
+  const startNew = () => { setMode("new"); setDraft({ ...EMPTY, protocol: "https", host: "", port: DEFAULT_PORT.https }) }
+  const startEdit = (c) => { setMode(c.id); setDraft({ ...c, password: "", ...parseAddress(c.url), ssl: c.ssl ?? { allowSelfSigned: true } }) }
+
+  const isHttp = draft.protocol === "http"
+  const changeProtocol = (evt) => {
+    const next = evt.target.value === "http" ? "http" : "https"
+    setDraft((d) => {
+      const prev = d.protocol === "http" ? "http" : "https"
+      const port = !d.port || d.port === DEFAULT_PORT[prev] ? DEFAULT_PORT[next] : d.port
+      return { ...d, protocol: next, port }
+    })
+  }
+
+  const addressField = React.createElement("div", { key: "addr", style: S.field }, [
+    React.createElement("span", { key: "l", style: S.label }, "地址"),
+    React.createElement("div", { key: "r", style: { display: "flex", gap: 6, alignItems: "center" } }, [
+      React.createElement("select", {
+        key: "p", style: { ...S.input, flex: "none", width: 92, padding: "0 6px" },
+        value: isHttp ? "http" : "https", onChange: changeProtocol,
+      }, [
+        React.createElement("option", { key: "s", value: "https" }, "HTTPS"),
+        React.createElement("option", { key: "h", value: "http" }, "HTTP"),
+      ]),
+      React.createElement("input", {
+        key: "h", style: { ...S.input, flex: 1, minWidth: 0 }, value: draft.host ?? "", placeholder: "主机",
+        onChange: set("host"),
+      }),
+      React.createElement("input", {
+        key: "o", style: { ...S.input, flex: "none", width: 80 }, value: draft.port ?? "",
+        placeholder: isHttp ? DEFAULT_PORT.http : DEFAULT_PORT.https, onChange: set("port"),
+      }),
+    ]),
+    React.createElement("span", { key: "hint", style: S.hint }, ADDRESS_HINT),
+  ])
 
   const input = (key, label, ph) =>
     React.createElement("label", { className: undefined, style: S.field }, [
@@ -145,7 +201,7 @@ function Section() {
     React.createElement("div", { key: "g1", style: S.grid }, [
       input("id", "连接 ID（唯一，如 dev/prod）", "dev"),
       input("name", "名称", "开发系统"),
-      input("url", "地址（http(s)://host:port）", "http://10.8.202.35:8000 或 https://10.8.202.35:44300"),
+      addressField,
       input("client", "客户端号（3 位，必须与系统一致）", "100"),
     ]),
     React.createElement("div", { key: "g2", style: S.grid }, [
@@ -157,7 +213,7 @@ function Section() {
     React.createElement("div", { key: "g3", style: S.grid }, [
       input("description", "描述", "开发系统"),
     ]),
-    React.createElement("label", { key: "ssl", style: { ...S.field, flexDirection: "row", alignItems: "center", gap: 8 } }, [
+    isHttp ? null : React.createElement("label", { key: "ssl", style: { ...S.field, flexDirection: "row", alignItems: "center", gap: 8 } }, [
       React.createElement("input", {
         key: "i", type: "checkbox", checked: draft.ssl?.allowSelfSigned !== false,
         onChange: (evt) => setDraft((d) => ({ ...d, ssl: { ...(d.ssl ?? {}), allowSelfSigned: evt.target.checked } })),
@@ -165,7 +221,6 @@ function Section() {
       React.createElement("span", { key: "l", style: S.label }, "允许自签名证书（内部系统 https 用）"),
     ]),
     React.createElement("p", { key: "hint", style: S.hint },
-      "端口对应协议：SAP 的 ICM HTTP 端口（常见 8000）用 http://，HTTPS 端口（常见 44300）用 https://。" +
       "客户端号就是登录客户端（sap-client），填错会返回 401；登录语言不确定时填 EN。"),
     React.createElement("div", { key: "acts", style: { display: "flex", gap: 8, justifyContent: "flex-end" } }, [
       React.createElement("button", { key: "c", style: S.btn, onClick: () => { setMode(null); setDraft({}) } }, "取消"),

@@ -65,7 +65,7 @@ export function buildProbeRequest(conf: {
     return {
       error:
         `连接地址要以 http:// 或 https:// 开头（当前是 "${raw || "(空)"}"）。` +
-        `例如 http://10.8.202.35:8000（ICM HTTP 端口）或 https://10.8.202.35:44300（HTTPS 端口）`,
+        `例如 http://<host>:8000（ICM HTTP 端口）或 https://<host>:44300（HTTPS 端口）`,
     }
   let url: URL
   try {

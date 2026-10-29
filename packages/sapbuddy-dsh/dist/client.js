@@ -4,7 +4,6 @@ window.__ModuleLoader__.load({
   factory: (require) => {
     var module = { exports: {} };
     var exports = module.exports;
-"use strict";
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -79,6 +78,20 @@ var S = {
   hint: { margin: 0, fontSize: 12, lineHeight: "18px", color: "var(--dsw-alias-label-tertiary)" }
 };
 var EMPTY = { language: "ZH", authMethod: "basic", ssl: { allowSelfSigned: true } };
+var DEFAULT_PORT = { https: "44300", http: "8000" };
+var ADDRESS_HINT = "https://\u4E3B\u673A:44300";
+function parseAddress(url) {
+  const m = /^\s*(https?):\/\/([^/:?#\s]+)(?::(\d+))?/i.exec(String(url ?? ""));
+  if (!m) return { protocol: "https", host: "", port: DEFAULT_PORT.https };
+  const protocol = m[1].toLowerCase();
+  return { protocol, host: m[2], port: m[3] || DEFAULT_PORT[protocol] };
+}
+function buildAddress(d) {
+  const protocol = d.protocol === "http" ? "http" : "https";
+  const host = String(d.host ?? "").trim().replace(/^https?:\/\//i, "").replace(/[/:?#].*$/, "");
+  const port = String(d.port ?? "").trim() || DEFAULT_PORT[protocol];
+  return host ? protocol + "://" + host + ":" + port : "";
+}
 function Section() {
   const [conns, setConns] = useState([]);
   const [mode, setMode] = useState(null);
@@ -105,7 +118,16 @@ function Section() {
   const save = async () => {
     setBusy(true);
     try {
-      const r = await post(API, { connection: draft });
+      const { protocol, host, port, ...rest } = draft;
+      const url = buildAddress(draft);
+      if (!url) {
+        setErr("\u8BF7\u586B\u5199\u4E3B\u673A");
+        setMsg(null);
+        return;
+      }
+      const connection = { ...rest, url };
+      if (protocol === "http") delete connection.ssl;
+      const r = await post(API, { connection });
       if (!r.ok) {
         setErr("\u4FDD\u5B58\u5931\u8D25: " + (r.error ?? "\u672A\u77E5\u9519\u8BEF"));
         setMsg(null);
@@ -147,12 +169,50 @@ function Section() {
   };
   const startNew = () => {
     setMode("new");
-    setDraft({ ...EMPTY });
+    setDraft({ ...EMPTY, protocol: "https", host: "", port: DEFAULT_PORT.https });
   };
   const startEdit = (c) => {
     setMode(c.id);
-    setDraft({ ...c, password: "" });
+    setDraft({ ...c, password: "", ...parseAddress(c.url), ssl: c.ssl ?? { allowSelfSigned: true } });
   };
+  const isHttp = draft.protocol === "http";
+  const changeProtocol = (evt) => {
+    const next = evt.target.value === "http" ? "http" : "https";
+    setDraft((d) => {
+      const prev = d.protocol === "http" ? "http" : "https";
+      const port = !d.port || d.port === DEFAULT_PORT[prev] ? DEFAULT_PORT[next] : d.port;
+      return { ...d, protocol: next, port };
+    });
+  };
+  const addressField = React.createElement("div", { key: "addr", style: S.field }, [
+    React.createElement("span", { key: "l", style: S.label }, "\u5730\u5740"),
+    React.createElement("div", { key: "r", style: { display: "flex", gap: 6, alignItems: "center" } }, [
+      React.createElement("select", {
+        key: "p",
+        style: { ...S.input, flex: "none", width: 92, padding: "0 6px" },
+        value: isHttp ? "http" : "https",
+        onChange: changeProtocol
+      }, [
+        React.createElement("option", { key: "s", value: "https" }, "HTTPS"),
+        React.createElement("option", { key: "h", value: "http" }, "HTTP")
+      ]),
+      React.createElement("input", {
+        key: "h",
+        style: { ...S.input, flex: 1, minWidth: 0 },
+        value: draft.host ?? "",
+        placeholder: "\u4E3B\u673A",
+        onChange: set("host")
+      }),
+      React.createElement("input", {
+        key: "o",
+        style: { ...S.input, flex: "none", width: 80 },
+        value: draft.port ?? "",
+        placeholder: isHttp ? DEFAULT_PORT.http : DEFAULT_PORT.https,
+        onChange: set("port")
+      })
+    ]),
+    React.createElement("span", { key: "hint", style: S.hint }, ADDRESS_HINT)
+  ]);
   const input = (key, label, ph) => React.createElement("label", { className: void 0, style: S.field }, [
     React.createElement("span", { key: "l", style: S.label }, label),
     React.createElement("input", {
@@ -185,11 +245,11 @@ function Section() {
     React.createElement("div", { key: "g1", style: S.grid }, [
       input("id", "\u8FDE\u63A5 ID\uFF08\u552F\u4E00\uFF0C\u5982 dev/prod\uFF09", "dev"),
       input("name", "\u540D\u79F0", "\u5F00\u53D1\u7CFB\u7EDF"),
-      input("url", "\u5730\u5740\uFF08http(s)://host:port\uFF09", "http://10.8.202.35:8000 \u6216 https://10.8.202.35:44300"),
+      addressField,
       input("client", "\u5BA2\u6237\u7AEF\u53F7\uFF083 \u4F4D\uFF0C\u5FC5\u987B\u4E0E\u7CFB\u7EDF\u4E00\u81F4\uFF09", "100")
     ]),
     React.createElement("div", { key: "g2", style: S.grid }, [
-      input("username", "\u7528\u6237\u540D", "YOUR_USER"),
+      input("username", "\u7528\u6237\u540D", "BC01"),
       input("password", "\u5BC6\u7801\uFF08\u7F16\u8F91\u65F6\u7559\u7A7A\u4FDD\u6301\u539F\u5BC6\u7801\uFF09", "\u2022\u2022\u2022\u2022\u2022\u2022"),
       input("language", "\u767B\u5F55\u8BED\u8A00\uFF08\u4E0D\u786E\u5B9A\u586B EN\uFF09", "ZH"),
       input("authMethod", "\u8BA4\u8BC1\u65B9\u5F0F", "basic")
@@ -197,19 +257,19 @@ function Section() {
     React.createElement("div", { key: "g3", style: S.grid }, [
       input("description", "\u63CF\u8FF0", "\u5F00\u53D1\u7CFB\u7EDF")
     ]),
-    React.createElement("label", { key: "ssl", style: { ...S.field, flexDirection: "row", alignItems: "center", gap: 8 } }, [
+    isHttp ? null : React.createElement("label", { key: "ssl", style: { ...S.field, flexDirection: "row", alignItems: "center", gap: 8 } }, [
       React.createElement("input", {
         key: "i",
         type: "checkbox",
-        checked: !draft.ssl || draft.ssl.allowSelfSigned !== false,
-        onChange: (evt) => setDraft((d) => ({ ...d, ssl: { ...(d.ssl || {}), allowSelfSigned: evt.target.checked } }))
+        checked: draft.ssl?.allowSelfSigned !== false,
+        onChange: (evt) => setDraft((d) => ({ ...d, ssl: { ...d.ssl ?? {}, allowSelfSigned: evt.target.checked } }))
       }),
       React.createElement("span", { key: "l", style: S.label }, "\u5141\u8BB8\u81EA\u7B7E\u540D\u8BC1\u4E66\uFF08\u5185\u90E8\u7CFB\u7EDF https \u7528\uFF09")
     ]),
     React.createElement(
       "p",
       { key: "hint", style: S.hint },
-      "\u7AEF\u53E3\u5BF9\u5E94\u534F\u8BAE\uFF1ASAP \u7684 ICM HTTP \u7AEF\u53E3\uFF08\u5E38\u89C1 8000\uFF09\u7528 http://\uFF0CHTTPS \u7AEF\u53E3\uFF08\u5E38\u89C1 44300\uFF09\u7528 https://\u3002\u5BA2\u6237\u7AEF\u53F7\u5C31\u662F\u767B\u5F55\u5BA2\u6237\u7AEF\uFF08sap-client\uFF09\uFF0C\u586B\u9519\u4F1A\u8FD4\u56DE 401\uFF1B\u767B\u5F55\u8BED\u8A00\u4E0D\u786E\u5B9A\u65F6\u586B EN\u3002"
+      "\u5BA2\u6237\u7AEF\u53F7\u5C31\u662F\u767B\u5F55\u5BA2\u6237\u7AEF\uFF08sap-client\uFF09\uFF0C\u586B\u9519\u4F1A\u8FD4\u56DE 401\uFF1B\u767B\u5F55\u8BED\u8A00\u4E0D\u786E\u5B9A\u65F6\u586B EN\u3002"
     ),
     React.createElement("div", { key: "acts", style: { display: "flex", gap: 8, justifyContent: "flex-end" } }, [
       React.createElement("button", { key: "c", style: S.btn, onClick: () => {

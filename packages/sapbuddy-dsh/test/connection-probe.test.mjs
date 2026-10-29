@@ -32,10 +32,10 @@ test('http 地址按 http 探测，并带上 sap-client / sap-language 查询参
 });
 
 test('https 地址按 https 探测，尾部斜杠不会拼出双斜杠', () => {
-    const probe = buildProbeRequest(conn({ url: 'https://10.8.202.35:44300///' }));
+    const probe = buildProbeRequest(conn({ url: 'https://sap.example:44300///' }));
     assert.ok(!('error' in probe));
     assert.equal(probe.scheme, 'https');
-    assert.equal(probe.url.toString(), 'https://10.8.202.35:44300/sap/bc/adt/compatibility/graph?sap-client=300&sap-language=EN');
+    assert.equal(probe.url.toString(), 'https://sap.example:44300/sap/bc/adt/compatibility/graph?sap-client=300&sap-language=EN');
 });
 
 test('地址缺协议时给出明确提示，而不是抛 TLS 错误', () => {

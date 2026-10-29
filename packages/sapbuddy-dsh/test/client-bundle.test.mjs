@@ -54,9 +54,15 @@ test('顶部说明写明 http 用于 8000、https 用于 44300', () => {
 // 先把 \uXXXX 还原成中文，断言才可读。
 const bundleText = code.replace(/\\u([0-9a-fA-F]{4})/g, (_m, hex) => String.fromCharCode(parseInt(hex, 16)));
 
-test('地址输入支持 http(s)，客户端号要求与系统一致，语言提示填 EN', () => {
-    assert.match(bundleText, /http\(s\):\/\/host:port/);
-    assert.match(bundleText, /http:\/\/10\.8\.202\.35:8000/);
+test('地址：协议下拉 + 主机 + 端口，灰字固定 https://主机:44300，无真实 IP', () => {
+    assert.match(bundleText, /"https:\/\/主机:44300"/);
+    assert.match(bundleText, /https: "44300", http: "8000"/);
+    assert.match(code, /"option"/);
+    assert.doesNotMatch(bundleText, /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/);
+    assert.doesNotMatch(bundleText, /http\(s\):\/\/host:port/);
+});
+
+test('客户端号要求与系统一致，语言提示填 EN', () => {
     assert.match(bundleText, /客户端号（3 位，必须与系统一致）/);
     assert.match(bundleText, /登录语言（不确定填 EN）/);
 });
@@ -69,4 +75,8 @@ test('提供自签证书开关（内部系统 https 用）', () => {
     const checkbox = calls.find((c) => c.type === 'input' && c.props?.type === 'checkbox');
     assert.ok(checkbox, '必须构造出 allowSelfSigned 复选框');
     assert.equal(checkbox.props.checked, true);
+});
+
+test('自签证书开关只在 HTTPS 下出现', () => {
+    assert.match(code, /isHttp \? null : React\.createElement\("label"/);
 });
