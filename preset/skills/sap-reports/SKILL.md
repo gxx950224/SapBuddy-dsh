@@ -18,7 +18,7 @@ disable: false
 ## 0. 前置检查（必须）
 
 1. 确认当前可用工具里有 `sap_reports`。
-2. **没有**时：告诉用户需要先安装并启用「SAP 报表」插件（计划 npm 包名 `@gxx-labs/sap-reports-dsh`，**尚未发布**），
+2. **没有**时：告诉用户需要先安装并启用「SAP 报表」插件（npm 包 `@gxx-labs/sap-reports-dsh`，安装：`dsh plugin --profile desktop add @gxx-labs/sap-reports-dsh@0.0.1`），
    然后在左侧「SAP 报表」页面完成连接；**到此停止**。
    - 禁止用 `execute_data_query`、`read_table_contents` 等其他工具"模拟"报表结果。
 

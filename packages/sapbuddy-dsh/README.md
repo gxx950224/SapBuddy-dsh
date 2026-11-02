@@ -57,7 +57,7 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.1.3
 
 工具涵盖对象搜索与读码、代码导航、语法诊断与激活、ATC 与单元测试、SQL 查询、DDIC、文本池、屏幕文本、消息类、函数模块接口和传输请求。
 
-技能包括 `abap-code-review`、`abap-explain`、`abap-templates`、`abap-wiki`、`clean-abap`、`dev-write`、`sap-abap-skills`、`translate-workflow`、`sap-fs`（四类 FS：MD + Claude 风 HTML）、`grilling`（经 sap-fs 加载的追问澄清）、`sap-reports`（经「SAP 报表」插件的 `sap_reports` 工具查询报表；该插件需另行安装，计划包名 `@gxx-labs/sap-reports-dsh`，尚未发布）。
+技能包括 `abap-code-review`、`abap-explain`、`abap-templates`、`abap-wiki`、`clean-abap`、`dev-write`、`sap-abap-skills`、`translate-workflow`、`sap-fs`（四类 FS：MD + Claude 风 HTML）、`grilling`（经 sap-fs 加载的追问澄清）、`sap-reports`（经「SAP 报表」插件的 `sap_reports` 工具查询报表；该插件需另行安装：`dsh plugin --profile desktop add @gxx-labs/sap-reports-dsh@0.0.1`）。
 
 ## 配置和写入保护
 
