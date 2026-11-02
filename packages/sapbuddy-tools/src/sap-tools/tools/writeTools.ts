@@ -3,6 +3,7 @@ import { z } from "zod"
 import { session_types, type ActivationResult } from "abap-adt-api"
 import { getClient } from "../adtManager.js"
 import { getActiveRequest, setActiveRequest } from "../taskTransport.js"
+import { normalizeTableTypeDefinition, writeTableTypeDefinition, createTableTypeObject, tableTypeUrl, TTYP_ROW_KINDS, TTYP_ACCESS_TYPES, TTYP_KEY_DEFINITIONS, TTYP_KEY_KINDS } from "./tableType.js"
 import { parseFunctionModuleParams, normalizeFunctionModuleParams, normalizeFormIncludeSource, isFmoduleSourceChannel, detectCommentParamBlock, escapeOpenSqlHostVars, FM_KINDS } from "./fmoduleInterface.js"
 import {
   requireObject,
@@ -161,16 +162,17 @@ export const createObjectTool = {
     "可执行报表用 PROG/P（主程序）；标准模板拆分的 INCLUDE 段（如 *_TOP/*_CLS/*_IMP）用 PROG/I 创建。\n" +
     "函数组用 FUGR/F 创建（parentName 不用填，用开发包）；函数模块用 FUGR/FF 创建（parentName 必须填函数组名，没填会拦截并提示向用户确认）。\n" +
     "函数组 include（L 开头子程序块，如 L<FG>F01，放 FORM）用 FUGR/I 创建（parentName 必须填函数组名，没填会拦截）。\n" +
+    "表类型用 TTYP/DA 创建：必须提供 rowType（行类型），可选 rowTypeKind/length/decimals/accessType(standard/sorted/hashed)/keyDefinition(standard/rowType/keyComponents/empty)/keyKind(nonUnique/unique)/keyComponents；工具创建后自动写入定义，再用 abap_activate 激活。\n" +
     "requestText 提供时自动创建传输请求并挂载对象。创建后对象未激活，用 abap_activate 激活。",
   write: true,
   inputSchema: z.object({
     objectType: z
       .enum([
         "CLAS/OC", "INTF/OI", "PROG/I", "PROG/P", "FUGR/F", "FUGR/FF", "FUGR/I",
-        "TABL/DT", "TABL/DS", "DTEL/DE", "DOMA/DD", "MSAG/N", "DEVC/K",
+        "TABL/DT", "TABL/DS", "DTEL/DE", "DOMA/DD", "TTYP/DA", "MSAG/N", "DEVC/K",
         "DDLS/DF", "DDLX/EX", "DDLA/ADF", "SRVD/SRV", "AUTH", "SUSO/B", "SRVB/SVB",
       ])
-      .describe("对象类型 ID：CLAS/OC(类) INTF/OI(接口) PROG/P(可执行报表/主程序) PROG/I(Include 程序段，模板拆 TOP/CLS/IMP 用) FUGR/F(函数组) FUGR/FF(函数模块,需 parentName=函数组名) FUGR/I(函数组 include 子程序块 L<FG>xx,需 parentName=函数组名) TABL/DT(表) DEVC/K(包)"),
+      .describe("对象类型 ID：CLAS/OC(类) INTF/OI(接口) PROG/P(可执行报表/主程序) PROG/I(Include 程序段，模板拆 TOP/CLS/IMP 用) FUGR/F(函数组) FUGR/FF(函数模块,需 parentName=函数组名) FUGR/I(函数组 include 子程序块 L<FG>xx,需 parentName=函数组名) TABL/DT(表) TTYP/DA(表类型,需 rowType) DEVC/K(包)"),
     name: z.string().describe("对象名称（大写，如 ZCL_MY_CLASS）"),
     description: z.string().describe("对象描述"),
     packageName: z.string().describe("所属开发包：正式开发包名，或 $TMP（临时测试包，不进传输）；先向用户确认"),
@@ -181,6 +183,14 @@ export const createObjectTool = {
       .string()
       .optional()
       .describe("数据元素(DTEL)绑定的域：仅 DTEL/DE 需要。缺省会被拦截——请先向用户确认域（标准域如 CHAR100/NUMC10，或先创建的 DOMA 自定义域）。数据元素缺域无法激活"),
+    rowType: z.string().optional().describe("表类型(TTYP/DA)行类型：DDIC 结构/表/数据元素名（如 BAPIRET2），或内置类型（STRING/C/N/P/I/D/T…）。仅 TTYP/DA 需要且必填"),
+    rowTypeKind: z.enum(TTYP_ROW_KINDS).optional().describe("行类型类别（TTYP）：dictionaryType(DDIC 类型,默认) predefinedAbapType(内置类型,内置名自动识别) refToDictionaryType refToClassOrInterfaceType"),
+    length: z.number().int().optional().describe("TTYP 内置行类型长度（C/N/X/P 必填）"),
+    decimals: z.number().int().optional().describe("TTYP 内置行类型小数位（仅 P）"),
+    accessType: z.enum(TTYP_ACCESS_TYPES).optional().describe("TTYP 访问类别：standard(默认) sorted hashed"),
+    keyDefinition: z.enum(TTYP_KEY_DEFINITIONS).optional().describe("TTYP 主键定义：standard(标准键,默认) rowType(整行) keyComponents(用户定义键组件) empty(空键,仅 standard)"),
+    keyKind: z.enum(TTYP_KEY_KINDS).optional().describe("TTYP 主键唯一性：nonUnique(standard 默认) unique(hashed 必须)；sorted 两者均可"),
+    keyComponents: z.array(z.string()).optional().describe("TTYP 用户定义键组件（keyDefinition=keyComponents 时必填，行结构字段名）"),
     connectionId: connectionIdSchema,
   }),
   async execute(args: {
@@ -192,6 +202,14 @@ export const createObjectTool = {
     requestNumber?: string
     parentName?: string
     domainName?: string
+    rowType?: string
+    rowTypeKind?: (typeof TTYP_ROW_KINDS)[number]
+    length?: number
+    decimals?: number
+    accessType?: (typeof TTYP_ACCESS_TYPES)[number]
+    keyDefinition?: (typeof TTYP_KEY_DEFINITIONS)[number]
+    keyKind?: (typeof TTYP_KEY_KINDS)[number]
+    keyComponents?: string[]
     connectionId?: string
   }): Promise<string> {
     try {
@@ -204,6 +222,17 @@ export const createObjectTool = {
       }
       // ── 强制规则：DTEL 必须带域，否则激活必报"未定义域或数据类型"（不能创建无法激活的壳）──
       const domainName = args.domainName ? String(args.domainName).trim().toUpperCase() : ""
+      // ── 强制规则：TTYP 必须带行类型；访问类别/主键组合在连 SAP 前校验（不能建出无法激活的壳）──
+      let ttypDef: ReturnType<typeof normalizeTableTypeDefinition> | undefined = undefined
+      if (objType === "TTYP/DA") {
+        ttypDef = normalizeTableTypeDefinition({
+          rowType: args.rowType ?? "", rowTypeKind: args.rowTypeKind, length: args.length, decimals: args.decimals,
+          accessType: args.accessType, keyDefinition: args.keyDefinition, keyKind: args.keyKind, keyComponents: args.keyComponents,
+        })
+        if (!ttypDef.ok) {
+          return "⛔ 强制规则拦截：表类型(TTYP/DA)定义不合法：\n· " + ttypDef.errors.join("\n· ") + "\n请先向用户确认行类型、访问类别与主键设置。"
+        }
+      }
       if (objType === "DTEL/DE" && !domainName) {
         return (
           "⛔ 强制规则拦截：创建数据元素(DTEL/DE)必须提供 domainName（绑定的域）。\n" +
@@ -241,11 +270,9 @@ export const createObjectTool = {
       const devClass = pkg
       // FUGR/F 创建函数组：parentName 语义是"所属开发包"（objectcreator 里映射为 packageRef），强制用 devClass
       const parentName = objType === "FUGR/F" ? devClass : (args.parentName ?? devClass)
-      const parentPath = objectPath(
-        args.objectType as never,
-        args.name.toUpperCase(),
-        parentName
-      )
+      const parentPath = objType === "TTYP/DA"
+        ? tableTypeUrl(args.name.toUpperCase())
+        : objectPath(args.objectType as never, args.name.toUpperCase(), parentName)
       // 请求：$TMP 不建请求；正式包用本需求共享请求（用户指定 requestNumber 或自动新建，同一需求复用）
       let transport: string | undefined
       const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, "")
@@ -268,7 +295,12 @@ export const createObjectTool = {
           }
         }
       }
-      await client.createObject({
+      if (objType === "TTYP/DA" && ttypDef && ttypDef.ok) {
+        await createTableTypeObject(client as never, {
+          name: args.name.toUpperCase(), description: args.description, packageName: devClass,
+          language: client.language || undefined, responsible: (client as { username?: string }).username,
+        }, ttypDef.value, transport)
+      } else await client.createObject({
         objtype: args.objectType as never,
         name: args.name.toUpperCase(),
         parentName,
@@ -280,6 +312,19 @@ export const createObjectTool = {
         language: client.language || undefined,
         masterLanguage: client.language || undefined,
       })
+      // TTYP 写定义：createObject 只建默认 CHAR 壳，lock→PUT 行类型/访问类别/主键
+      let ttypNote = ""
+      if (objType === "TTYP/DA" && ttypDef && ttypDef.ok) {
+        const d = ttypDef.value
+        try {
+          await writeTableTypeDefinition(client as never, args.name.toUpperCase(), d, transport)
+          ttypNote = `行类型: ${d.rowType}（${d.rowTypeKind}）  访问类别: ${d.accessType}  主键: ${d.keyDefinition}/${d.keyKind}${d.keyComponents.length ? " [" + d.keyComponents.join(", ") + "]" : ""}（已写入定义）\n`
+        } catch (e) {
+          return (`⚠️ 表类型 ${args.name.toUpperCase()} 已创建，但写入定义失败（对象未激活，当前为默认壳）。\n` +
+            `错误: ${e instanceof Error ? e.message.slice(0, 300) : String(e)}\n` +
+            `请确认行类型 ${d.rowType} 存在且已激活，修正参数后重试或在 SE11 手工维护。`)
+        }
+      }
       // DTEL 补域：创建出的壳缺域无法激活，写入域（typeName）使对象可直接激活
       let dtelNote = ""
       if (objType === "DTEL/DE" && domainName) {
@@ -298,6 +343,7 @@ export const createObjectTool = {
       return (
         `✅ 对象创建成功: ${args.objectType} ${args.name.toUpperCase()}\n` +
         dtelNote +
+        ttypNote +
         `包: ${devClass}\n` +
         (transport
           ? `传输请求: ${transport}${args.requestNumber ? "（用户指定）" : "（自动新建/本需求共享）"}\n`

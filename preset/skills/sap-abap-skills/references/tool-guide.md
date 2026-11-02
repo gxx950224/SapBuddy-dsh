@@ -96,7 +96,7 @@
 ```json
 { "objectType": "PROG/P", "name": "ZAIR011", "description": "公司代码查询", "packageName": "ZAI" }
 ```
-> 类型：`CLAS/OC`(类) `INTF/OI`(接口) `PROG/P`(报表) `TABL/DT`(表) `DTEL/DE`(数据元素) `DOMA/DD`(域) `DEVC/K`(包) `FUGR/FF`(函数模块+parentName 函数组)
+> 类型：`CLAS/OC`(类) `INTF/OI`(接口) `PROG/P`(报表) `TABL/DT`(表) `DTEL/DE`(数据元素) `DOMA/DD`(域) `TTYP/DA`(表类型，必填 rowType；可选 accessType standard/sorted/hashed、keyDefinition standard/rowType/keyComponents/empty、keyKind nonUnique/unique、keyComponents) `DEVC/K`(包) `FUGR/FF`(函数模块+parentName 函数组)
 
 ### 2.2 写入代码（唯一匹配替换）
 ```json
