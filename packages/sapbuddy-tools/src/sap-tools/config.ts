@@ -18,7 +18,7 @@ export interface ConnectionConfig {
   active?: boolean
   /** SAP 系统地址，如 https://sap-dev.example.com:443 */
   url: string
-  /** SAP 客户端，如 100 */
+  /** SAP 客户端，如 200 */
   client: string
   username: string
   password: string

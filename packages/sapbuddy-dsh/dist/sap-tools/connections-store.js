@@ -67,7 +67,7 @@ function validate(input) {
     // 客户端号就是登录时的 sap-client，填错（比如系统是 300 却填 200）会直接 401
     const client = String(input.client ?? "").trim();
     if (client && !/^\d{1,3}$/.test(client))
-        return "客户端号应为 1-3 位数字（如 100）";
+        return "客户端号应为 1-3 位数字（如 200）";
     return undefined;
 }
 /** 新建或更新连接；更新时密码为空/'***' 保持原密码。返回 {ok} 或 {ok:false,error} */
