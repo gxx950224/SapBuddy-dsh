@@ -202,10 +202,10 @@ function Section() {
       input("id", "连接 ID（唯一，如 dev/prod）", "dev"),
       input("name", "名称", "开发系统"),
       addressField,
-      input("client", "客户端号（3 位，必须与系统一致）", "100"),
+      input("client", "客户端号（3 位，必须与系统一致）", "200"),
     ]),
     React.createElement("div", { key: "g2", style: S.grid }, [
-      input("username", "用户名", "BC01"),
+      input("username", "用户名", "SAPUSER"),
       input("password", "密码（编辑时留空保持原密码）", "••••••"),
       input("language", "登录语言（不确定填 EN）", "ZH"),
       input("authMethod", "认证方式", "basic"),

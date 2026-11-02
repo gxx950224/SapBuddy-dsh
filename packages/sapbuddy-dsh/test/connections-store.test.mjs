@@ -31,8 +31,8 @@ const connection = (overrides = {}) => ({
     id: 'dev',
     name: '开发',
     url: 'https://dev.example:44300',
-    client: '100',
-    username: 'BC01',
+    client: '200',
+    username: 'SAPUSER',
     password: 'secret',
     language: 'ZH',
     authMethod: 'basic',
@@ -50,7 +50,7 @@ test('保存连接后池化客户端立刻作废，并按新地址重新登录',
     assert.equal(created[0].conf.url, 'https://dev.example:44300');
 
     // 设置页改地址 = 切换到另一个系统
-    assert.equal(store.saveConnection(connection({ url: 'https://prod.example:44300', client: '800' })).ok, true);
+    assert.equal(store.saveConnection(connection({ url: 'https://prod.example:44300', client: '200' })).ok, true);
     assert.deepEqual(adt.connectedIds(), [], '配置变更必须清空连接池');
     assert.equal(config.getConfig().connections[0].url, 'https://prod.example:44300');
 
@@ -63,7 +63,7 @@ test('保存连接后池化客户端立刻作废，并按新地址重新登录',
 test('切换启用连接（activate）同样清空连接池', async () => {
     created = [];
     assert.equal(store.saveConnection(connection({ id: 'dev', url: 'https://dev.example:44300' })).ok, true);
-    assert.equal(store.saveConnection(connection({ id: 'qas', url: 'https://qas.example:44300', client: '600' })).ok, true);
+    assert.equal(store.saveConnection(connection({ id: 'qas', url: 'https://qas.example:44300', client: '200' })).ok, true);
 
     await adt.getClient('dev');
     assert.deepEqual(adt.connectedIds(), ['dev']);

@@ -86,7 +86,7 @@ export const updateDomainTool = {
               language: "ZH",
               masterLanguage: "ZH",
               masterSystem: "DS4",
-              responsible: "BC01",
+              responsible: "SAPUSER",
               packageName: "$TMP",
             },
             lock.LOCK_HANDLE,

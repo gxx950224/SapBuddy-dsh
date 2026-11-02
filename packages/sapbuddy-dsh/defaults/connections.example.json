@@ -3,7 +3,7 @@
     {
       "id": "AI",
       "url": "https://your-sap-host:44300",
-      "client": "100",
+      "client": "200",
       "username": "YOUR_USER",
       "password": "YOUR_PASSWORD",
       "language": "ZH",

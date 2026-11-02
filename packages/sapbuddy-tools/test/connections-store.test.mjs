@@ -30,7 +30,7 @@ function rawFile() {
 
 test("初始无连接；save 新建后 list 可见且密码脱敏", () => {
   assert.deepEqual(store.listConnections(), [])
-  const r = store.saveConnection({ id: "dev", url: "https://sap:44300", client: "100", username: "BC01", password: "secret1" })
+  const r = store.saveConnection({ id: "dev", url: "https://sap:44300", client: "200", username: "SAPUSER", password: "secret1" })
   assert.equal(r.ok, true)
   const list = store.listConnections()
   assert.equal(list.length, 1)
@@ -41,20 +41,20 @@ test("初始无连接；save 新建后 list 可见且密码脱敏", () => {
 })
 
 test("更新：密码留空/*** 保持原密码；新密码覆盖", () => {
-  store.saveConnection({ id: "dev", url: "https://sap:44300", username: "BC01", password: "secret2" })
+  store.saveConnection({ id: "dev", url: "https://sap:44300", username: "SAPUSER", password: "secret2" })
   assert.equal(rawFile().connections[0].password, "secret2")
   // 更新其他字段，密码不传 → 保持
-  store.saveConnection({ id: "dev", url: "https://sap:44300", client: "800", username: "BC01" })
+  store.saveConnection({ id: "dev", url: "https://sap:44300", client: "200", username: "SAPUSER" })
   assert.equal(rawFile().connections[0].password, "secret2", "省略密码应保持")
-  assert.equal(rawFile().connections[0].client, "800")
+  assert.equal(rawFile().connections[0].client, "200")
   // 传 *** 也保持
-  store.saveConnection({ id: "dev", url: "https://sap:44300", username: "BC01", password: "***" })
+  store.saveConnection({ id: "dev", url: "https://sap:44300", username: "SAPUSER", password: "***" })
   assert.equal(rawFile().connections[0].password, "secret2")
 })
 
 test("切换启用：activate 置 active，其余清空；get_connected_systems 场景的 dirty 标记", () => {
   clearConnectionDirty()
-  store.saveConnection({ id: "prod", url: "https://sap2:44300", username: "BC01", password: "p2" })
+  store.saveConnection({ id: "prod", url: "https://sap2:44300", username: "SAPUSER", password: "p2" })
   assert.equal(isConnectionDirty(), true, "保存后应标记连接变更")
   store.activateConnection("prod")
   const list = store.listConnections()

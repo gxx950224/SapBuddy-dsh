@@ -246,10 +246,10 @@ function Section() {
       input("id", "\u8FDE\u63A5 ID\uFF08\u552F\u4E00\uFF0C\u5982 dev/prod\uFF09", "dev"),
       input("name", "\u540D\u79F0", "\u5F00\u53D1\u7CFB\u7EDF"),
       addressField,
-      input("client", "\u5BA2\u6237\u7AEF\u53F7\uFF083 \u4F4D\uFF0C\u5FC5\u987B\u4E0E\u7CFB\u7EDF\u4E00\u81F4\uFF09", "100")
+      input("client", "\u5BA2\u6237\u7AEF\u53F7\uFF083 \u4F4D\uFF0C\u5FC5\u987B\u4E0E\u7CFB\u7EDF\u4E00\u81F4\uFF09", "200")
     ]),
     React.createElement("div", { key: "g2", style: S.grid }, [
-      input("username", "\u7528\u6237\u540D", "BC01"),
+      input("username", "\u7528\u6237\u540D", "SAPUSER"),
       input("password", "\u5BC6\u7801\uFF08\u7F16\u8F91\u65F6\u7559\u7A7A\u4FDD\u6301\u539F\u5BC6\u7801\uFF09", "\u2022\u2022\u2022\u2022\u2022\u2022"),
       input("language", "\u767B\u5F55\u8BED\u8A00\uFF08\u4E0D\u786E\u5B9A\u586B EN\uFF09", "ZH"),
       input("authMethod", "\u8BA4\u8BC1\u65B9\u5F0F", "basic")

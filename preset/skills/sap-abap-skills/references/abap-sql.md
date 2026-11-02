@@ -563,8 +563,8 @@ UPDATE dbtab FROM @struc INDICATORS SET STRUCTURE ind.
 ```abap
 " USING CLIENT (specific client)
 SELECT * FROM dbtab
-  USING CLIENT @( '100' )                                       " [7.50+]
-  INTO TABLE @DATA(client100_data).
+  USING CLIENT @( '200' )                                       " [7.50+]
+  INTO TABLE @DATA(client200_data).
 
 " USING ALL CLIENTS (cross-client)
 SELECT * FROM dbtab

@@ -72,8 +72,8 @@ function setup(connId, plan = {}) {
     resetClients();
     state.config = {
         connections: [{
-            id: connId, url: 'https://dev.example:44300', client: '100',
-            username: 'BC01', password: 'secret', language: 'ZH', authMethod: 'basic',
+            id: connId, url: 'https://dev.example:44300', client: '200',
+            username: 'SAPUSER', password: 'secret', language: 'ZH', authMethod: 'basic',
         }],
         security: { readOnly: false },
     };
