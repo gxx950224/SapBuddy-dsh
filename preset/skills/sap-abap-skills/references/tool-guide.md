@@ -25,6 +25,7 @@
 ├─ 翻译屏幕文字   → §4.4 translate_screen_text（D020T/D021T）
 ├─ 写文本元素     → §5 manage_text_elements
 ├─ 数据查询       → §6 execute_data_query
+├─ 查询/运行 SAP 报表（ALV） → 不在本手册：走独立的 sap_reports 工具（「SAP 报表」插件），先加载 sap-reports 技能；报表连接与 ABAP 开发连接互相独立
 ├─ 代码审查       → §7（技能流程）
 ├─ 性能/崩溃诊断  → §8 analyze_abap_traces/dumps
 ├─ DDIC 文本/域   → §9 fix_ddic_text / update_domain_properties

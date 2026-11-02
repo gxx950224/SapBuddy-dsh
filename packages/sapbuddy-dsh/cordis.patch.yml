@@ -15,7 +15,7 @@
 # The composition is the shipped `standard` preset (the authoritative row set for
 # this DSH version) plus the SapBuddy layers:
 #   - the `sapbuddy-dsh` row: 41 SAP tools + the write gate + settings routes
-#   - `skill-filesystem.customSkillDirs`: the eight ABAP skills bundled in this
+#   - `skill-filesystem.customSkillDirs`: the eleven skills bundled in this
 #     package, resolved through createRequire so any install layout works
 #
 # `sapbuddy-dsh` resolves as a bare package name, so it must be a real
@@ -37,7 +37,7 @@
 
 # ── 行 2：agent preset（含工具行）──────────────────────────────────────────
 #
-# SapBuddy：41 个 SAP 工具 + 8 个 ABAP 技能 + SapBuddy 人设。
+# SapBuddy：41 个 SAP 工具 + 11 个技能 + SapBuddy 人设。
 # 结构取自 shipped standard（本 DSH 版本的权威行集），再叠加 sapbuddy-dsh 与技能目录。
 - insert:
     - id: preset-sapbuddy
@@ -45,8 +45,8 @@
       config:
         id: sapbuddy
         name: SapBuddy
-        description: SAP ABAP AI 全能助手 —— 41 个 SAP 工具（搜索/读码/开发/审查/ATC/SQL/DDIC/翻译）+ 8 个
-          ABAP 技能，面向开发顾问与业务顾问。写操作带只读保护、开发客户端守卫与人工确认门禁。
+        description: SAP ABAP AI 全能助手 —— 41 个 SAP 工具（搜索/读码/开发/审查/ATC/SQL/DDIC/翻译）+ 11 个
+          技能，面向开发顾问与业务顾问。写操作带只读保护、开发客户端守卫与人工确认门禁。
         order: 10
         plugins:
           - id: persona
@@ -115,7 +115,7 @@
           - id: skill-filesystem
             name: '@deepseek-ai/dsh-skill-filesystem'
             config:
-              # The eight ABAP skills travel inside this package, resolved through the
+              # The eleven skills travel inside this package, resolved through the
               # host's module graph so npm/pnpm layouts all work.
               customSkillDirs:
                 - !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('sapbuddy-dsh/package.json')), 'skills')

@@ -26,7 +26,7 @@ packages/sapbuddy-dsh/          # 41 个 SAP 工具插件（纯 TS，zod schema 
   │    ├── gate.ts                # 写门禁三层（guard → pre-execute ask → 确认词窗口）
   │    ├── auditLog.ts            # 写操作审计
   │    └── prompt-files.ts        # 提示词注入（SYSTEM.md / AGENTS.md / Memory.md）
-  ├── skills/                     # 8 个 ABAP 技能（随包分发，preset 经 createRequire 解析）
+  ├── skills/                     # 11 个技能（随包分发，preset 经 createRequire 解析）
   ├── defaults/                   # 首次运行 seed 到 preset 目录的默认文件（绝不覆盖已有）
   └── cordis.patch.yml            # dsh.bundle.patch：preset-sapbuddy 行（preset 唯一注册途径）
 scripts/install.mjs               # 安装器（校验 dsh.bundle.patch + dsh plugin add）

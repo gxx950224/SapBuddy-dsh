@@ -2,20 +2,20 @@
 
 [![npm](https://img.shields.io/npm/v/sapbuddy-dsh)](https://www.npmjs.com/package/sapbuddy-dsh) [GitHub](https://github.com/gxx950224/sapbuddy-dsh)
 
-SapBuddy 的 DeepSeek Harness 插件：41 个 SAP ABAP 工具、10 个技能、SapBuddy agent preset 和 SAP 连接设置页。支持对象搜索与读码、代码修改、语法诊断与激活、DDIC、传输请求及文本维护。技能现为 10 个，含 `sap-fs`（功能规格 FS）与 `grilling`（经 sap-fs 加载的追问）。
+SapBuddy 的 DeepSeek Harness 插件：41 个 SAP ABAP 工具、11 个技能、SapBuddy agent preset 和 SAP 连接设置页。支持对象搜索与读码、代码修改、语法诊断与激活、DDIC、传输请求及文本维护。技能现为 11 个，含 `sap-fs`（功能规格 FS）、`grilling`（经 sap-fs 加载的追问）与 `sap-reports`（经「SAP 报表」插件的 `sap_reports` 工具查询报表，需另装该插件）。
 
 ## 安装与升级
 
 在 DSH 的插件管理页添加：
 
 ```text
-sapbuddy-dsh@0.1.2
+sapbuddy-dsh@0.1.3
 ```
 
 或者使用 DSH 命令行：
 
 ```bash
-dsh plugin --profile desktop add sapbuddy-dsh@0.1.2
+dsh plugin --profile desktop add sapbuddy-dsh@0.1.3
 ```
 
 安装或更新后完整退出并重启 DSH，在设置页配置 SAP 连接，新建会话选择 **SapBuddy**。需要 Node.js 22+ 和兼容的 DSH，宿主依赖要求见[插件 package.json](packages/sapbuddy-dsh/package.json)。
@@ -60,8 +60,8 @@ npm pack --dry-run --ignore-scripts
 
 ```bash
 cd packages/sapbuddy-dsh
-npm pack --ignore-scripts                      # 生成 sapbuddy-dsh-0.1.2.tgz
-dsh plugin --profile desktop add ./sapbuddy-dsh-0.1.2.tgz
+npm pack --ignore-scripts                      # 生成 sapbuddy-dsh-0.1.3.tgz
+dsh plugin --profile desktop add ./sapbuddy-dsh-0.1.3.tgz
 ```
 
 安装后完整退出并重新启动 DSH 生效。
