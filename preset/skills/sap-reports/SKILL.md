@@ -24,8 +24,8 @@ disable: false
 
 ## 1. 两套连接互相独立
 
-- 报表连接：在「SAP 报表」页面创建（例如 client 600），工具只能读到其 `connectionId`。
-- ABAP 开发连接：SapBuddy 设置页创建（例如 client 100），由 `get_connected_systems` 查看。
+- 报表连接：在「SAP 报表」页面创建（例如 client 200），工具只能读到其 `connectionId`。
+- ABAP 开发连接：SapBuddy 设置页创建（例如 client 200），由 `get_connected_systems` 查看。
 - 两者**互不替代**：`get_connected_systems` 看不到报表连接；报表连接也不能用于读写 ABAP 对象。
 - 账号密码只由用户在「SAP 报表」页面填写。**绝不索取、转述或回显密码**；工具参数也不接受凭据。
 
