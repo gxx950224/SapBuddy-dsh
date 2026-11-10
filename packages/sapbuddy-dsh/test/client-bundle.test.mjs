@@ -28,6 +28,17 @@ assert.ok(spec, 'bundle 必须通过 window.__ModuleLoader__.load 注册');
 assert.equal(spec.id, 'sapbuddy-dsh');
 
 const exportsObj = spec.factory((id) => (id === 'react' ? React : {}));
+
+// bundle 形态回归：factory 返回的必须是【最初的 exports 对象】（apply/inject 直接挂在其上），
+// 而不是 esbuild `__toCommonJS` 换出来的新对象。这两种对象旧版 DSH 都能用，但若宿主
+// 持有最初的 exports 引用（见 GitHub issue #1），只有前者能拿到 apply/inject。
+test('factory 返回最初的 exports 对象，apply/inject 可直接读取', () => {
+    assert.equal('__esModule' in exportsObj, false);
+    assert.equal(exportsObj[Symbol.toStringTag], 'Module');
+    assert.equal(typeof exportsObj.apply, 'function');
+    assert.deepEqual(Array.from(exportsObj.inject), ['slots']);
+});
+
 let Section;
 exportsObj.apply({
     slots: {

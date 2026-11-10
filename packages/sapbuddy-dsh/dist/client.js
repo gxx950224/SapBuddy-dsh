@@ -22,7 +22,7 @@ var __copyProps = (to, from, except, desc) => {
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// client/index.ts
+// ../sapbuddy-settings-ui/client/index.ts
 var index_exports = {};
 __export(index_exports, {
   apply: () => apply,
@@ -303,6 +303,16 @@ function apply(ctx) {
   }, Section));
 }
 
-    return module.exports;
+    // esbuild 的 CJS 导出对象被换掉了：把导出挂回最初的 exports 对象并返回它，
+    // 使「取返回值」与「取最初 exports 引用」两种加载器都能读到 apply / inject。
+    Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+    if (module.exports !== exports) {
+      for (const key of Object.keys(module.exports)) {
+        if (!Object.prototype.hasOwnProperty.call(exports, key)) {
+          Object.defineProperty(exports, key, Object.getOwnPropertyDescriptor(module.exports, key));
+        }
+      }
+    }
+    return exports;
   }
 });

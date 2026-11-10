@@ -26,14 +26,14 @@ packages/sapbuddy-dsh/          # 41 个 SAP 工具插件（纯 TS，zod schema 
   │    ├── gate.ts                # 写门禁三层（guard → pre-execute ask → 确认词窗口）
   │    ├── auditLog.ts            # 写操作审计
   │    └── prompt-files.ts        # 提示词注入（SYSTEM.md / AGENTS.md / Memory.md）
-  ├── skills/                     # 11 个技能（随包分发，preset 经 createRequire 解析）
+  ├── skills/                     # 12 个技能（随包分发，preset 经 createRequire 解析）
   ├── defaults/                   # 首次运行 seed 到 preset 目录的默认文件（绝不覆盖已有）
   └── cordis.patch.yml            # dsh.bundle.patch：preset-sapbuddy 行（preset 唯一注册途径）
 scripts/install.mjs               # 安装器（校验 dsh.bundle.patch + dsh plugin add）
 ```
 
 - **注册**：DSH 原生 `ctx.tools.register(defineTool(...))`（index.ts），不依赖任何 MCP 框架；
-- **preset 注册**：0.2.0-rc.2 **不扫描** `~/.dsh/.agent-presets/`。preset 是 `cordis.patch.yml`
+- **preset 注册**：0.2.2-rc.1（自 0.2.0-rc.2 起）**不扫描** `~/.dsh/.agent-presets/`。preset 是 `cordis.patch.yml`
   里的一条 `@deepseek-ai/dsh-agent-preset` 行，靠 `package.json` 的 `dsh.bundle.patch` 生效。
   没有 `dsh.bundle` 的包会被 `dsh plugin add` 装成普通依赖，配置一行都不生效。
 - **提示词注入**：`prompt-files.ts` 把配置根里的 `prompts/SYSTEM.md`、`AGENTS.md`、

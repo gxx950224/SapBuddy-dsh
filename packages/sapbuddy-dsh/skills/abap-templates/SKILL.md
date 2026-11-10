@@ -473,6 +473,9 @@ ENDCASE.
 
 ## 常用 BAPI 参考
 
+> PP 模块（BOM、工艺路线、生产版本、生产/计划订单、报工、MRP、工程变更、重复制造）以及 PP 场景常用的货物移动 / 批次接口，见技能 `sap-pp-bapi`，本节不展开。下方仍保留 `BAPI_GOODSMVT_CREATE` 作为通用过账入口，详细约束与查询 / 冲销的标准名称以 `sap-pp-bapi` 为准。
+> 事务控制（`BAPI_TRANSACTION_COMMIT` / `BAPI_TRANSACTION_ROLLBACK`）与 `BAPIRET2` 返回模式以本节及上方「异常处理模式」为准；`sap-pp-bapi` 只引用、不重复本章。
+
 ### 数据读取
 | 函数 | 用途 |
 |------|------|

@@ -29,6 +29,7 @@ disable: false
 | --- | --- |
 | 触发后立刻 | 本文件 + `references/fs-contract.md` |
 | 需要连系统 | `references/system-verification.md` |
+| 需求属 PP，或触及工作流程第 1 步所列对象 / 事务码（含 PP 常用的 MIGO / MSC*） | **Skill 加载 `sap-pp-bapi`**，按域阅读该技能参考文件，为 FS 点名标准 BAPI/FM、事务码与约束 |
 | 需要追问 | `references/grilling-integration.md`，并 **Skill 加载 `grilling`**（含 “grill me” 类触发） |
 | 已判定类型 | `references/types/<type>.md` + `assets/templates/fs-base.md` + `assets/templates/<type>.md` |
 | 对齐详略 | `references/example-enhancement.md`（仅增强类样例） |
@@ -39,7 +40,7 @@ disable: false
 
 ## 工作流程
 
-1. **判类型**（混合取主导；ALV 按钮会改业务状态 → 功能报表）。读对应 `types/` 与模板。
+1. **判类型**（混合取主导；ALV 按钮会改业务状态 → 功能报表）。读对应 `types/` 与模板。若需求模块为 PP，或涉及 BOM / 工艺路线 / 生产版本 / 生产或计划订单 / 报工 / MRP / 工程变更 / 重复制造，或事务码 CS01–CS03、CS12/CS15、CA01–CA03、C223、CO01–CO03、COHV、CO11N、MD11–MD13、MD04、CC01–CC03、MFBF/MF41（货物移动 MIGO、批次 MSC* 为 PP 常用跨模块场景）：先 **Skill 加载 `sap-pp-bapi`**，在接口 / 增强 / 报表方案中用目录点名标准 BAPI/FM、事务码与约束；禁止在已有标准接口可用时发明自定义 API；内部 / 未发布函数须标明风险，不得作为默认方案。
 2. **整理已知**：用户已说内容分到需求 / 现状 / 规则，先不提问。
 3. **取证**：按 `system-verification.md` 只查能查的。
 4. **追问**：按 `grilling-integration.md` 加载 `grilling`，只问业务决策。

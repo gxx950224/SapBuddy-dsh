@@ -2,21 +2,21 @@
 
 [![npm](https://img.shields.io/npm/v/sapbuddy-dsh)](https://www.npmjs.com/package/sapbuddy-dsh) [GitHub](https://github.com/gxx950224/sapbuddy-dsh)
 
-[SapBuddy](https://github.com/gxx950224/sapbuddy) 的 DeepSeek Harness 插件，提供 41 个 SAP ABAP 工具、11 个技能、SapBuddy agent preset 和 SAP 连接设置页。
+[SapBuddy](https://github.com/gxx950224/sapbuddy) 的 DeepSeek Harness 插件，提供 41 个 SAP ABAP 工具、12 个技能、SapBuddy agent preset 和 SAP 连接设置页。
 
 ## 安装
 
-需要 Node.js 22+ 和兼容的 DSH；具体宿主依赖要求见 package.json 的 peerDependencies。
+需要 Node.js 22+ 和 DSH 0.2.2-rc.1 及以上（声明在 `engines.dsh`，不满足时宿主会在安装/启动阶段明确拦截）；具体宿主依赖要求见 package.json 的 peerDependencies。
 在 DSH 的插件管理页添加：
 
 ```text
-sapbuddy-dsh@0.1.4
+sapbuddy-dsh@0.1.5
 ```
 
 也可以通过 DSH 命令行安装：
 
 ```bash
-dsh plugin --profile desktop add sapbuddy-dsh@0.1.4
+dsh plugin --profile desktop add sapbuddy-dsh@0.1.5
 ```
 
 更新已安装插件后，完整退出并重新启动 DSH，再新建会话选择 **SapBuddy**。
@@ -57,7 +57,7 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.1.4
 
 工具涵盖对象搜索与读码、代码导航、语法诊断与激活、ATC 与单元测试、SQL 查询、DDIC、文本池、屏幕文本、消息类、函数模块接口和传输请求。
 
-技能包括 `abap-code-review`、`abap-explain`、`abap-templates`、`abap-wiki`、`clean-abap`、`dev-write`、`sap-abap-skills`、`translate-workflow`、`sap-fs`（四类 FS：MD + Claude 风 HTML）、`grilling`（经 sap-fs 加载的追问澄清）、`sap-reports`（经「SAP 报表」插件的 `sap_reports` 工具查询报表；该插件需另行安装：`dsh plugin --profile desktop add @gxx-labs/sap-reports-dsh@0.0.1`）。
+技能包括 `abap-code-review`、`abap-explain`、`abap-templates`、`abap-wiki`、`clean-abap`、`dev-write`、`sap-abap-skills`、`translate-workflow`、`sap-fs`（四类 FS：MD + Claude 风 HTML）、`grilling`（经 sap-fs 加载的追问澄清）、`sap-reports`（经「SAP 报表」插件的 `sap_reports` 工具查询报表；该插件需另行安装：`dsh plugin --profile desktop add @gxx-labs/sap-reports-dsh@0.0.1`）、`sap-pp-bapi`（PP 标准 BAPI/FM 目录，写 PP 相关 FS 或 PP 对象 ABAP 时加载）。
 
 ## 配置和写入保护
 

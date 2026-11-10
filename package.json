@@ -1,6 +1,6 @@
 {
   "name": "sapbuddy-dsh",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "SapBuddy on DeepSeek Harness — 41 个 SAP 工具作为 DSH 工具插件 + agent preset",
   "license": "MIT",
