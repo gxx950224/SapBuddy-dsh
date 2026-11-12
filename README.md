@@ -9,13 +9,13 @@ SapBuddy 的 DeepSeek Harness 插件：41 个 SAP ABAP 工具、12 个技能、S
 在 DSH 的插件管理页添加：
 
 ```text
-sapbuddy-dsh@0.1.5
+sapbuddy-dsh@0.1.6
 ```
 
 或者使用 DSH 命令行：
 
 ```bash
-dsh plugin --profile desktop add sapbuddy-dsh@0.1.5
+dsh plugin --profile desktop add sapbuddy-dsh@0.1.6
 ```
 
 安装或更新后完整退出并重启 DSH，在设置页配置 SAP 连接，新建会话选择 **SapBuddy**。需要 Node.js 22+ 和兼容的 DSH，宿主依赖要求见[插件 package.json](packages/sapbuddy-dsh/package.json)。
@@ -37,6 +37,8 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.1.5
 ## 连接切换与会话自愈
 
 切换或保存 SAP 连接后，插件立刻作废进程内池化的 ADT 客户端，下一次调用按新配置重新登录；写序列进入前还会刷新会话，识别到 CSRF/会话失效时重建连接并重试一次。因此切换系统后不会再出现"读源码正常、写入一直报 `CSRF 令牌验证失败`、必须重启 DSH"的情况，详见[插件使用说明](packages/sapbuddy-dsh/README.md)。
+
+0.1.6：SAP ICM 对失效 ADT 会话返回的 `400 Session timed out` 会自动清 cookie、重新登录并重试一次（非 stateful）；若仍失败则清池，避免坏客户端常驻。错误信息会附带 HTTP 状态与 SAP 原文。`manage_text_elements` 对函数组（FUGR）改为本地提示，不再向 ADT 发无意义请求。
 
 ## 仓库结构
 
@@ -60,8 +62,8 @@ npm pack --dry-run --ignore-scripts
 
 ```bash
 cd packages/sapbuddy-dsh
-npm pack --ignore-scripts                      # 生成 sapbuddy-dsh-0.1.5.tgz
-dsh plugin --profile desktop add ./sapbuddy-dsh-0.1.5.tgz
+npm pack --ignore-scripts                      # 生成 sapbuddy-dsh-0.1.6.tgz
+dsh plugin --profile desktop add ./sapbuddy-dsh-0.1.6.tgz
 ```
 
 安装后完整退出并重新启动 DSH 生效。

@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { session_types } from "abap-adt-api";
 import { getClient } from "../adtManager.js";
-import { resolveConnectionId, toToolError, escapeXmlAttr, connectionIdSchema } from "./shared.js";
+import { resolveConnectionId, toToolError, escapeXmlAttr, connectionIdSchema, matchFunctionGroupProgram } from "./shared.js";
 // ─── manage_transport_requests ──────────────────────────────────────────────
 export const transportTool = {
     name: "manage_transport_requests",
@@ -208,9 +208,6 @@ export const textElementsTool = {
     }),
     async execute(args) {
         try {
-            const connId = await resolveConnectionId(args.connectionId);
-            const client = await getClient(connId);
-            const { textElementsUrl } = await import("abap-adt-api");
             // ⛔ 函数组主程序归一化：SAPL* 主程序（如 SAPLZBCG004AA）走 PROG 路径会报 CUA 错误
             // （"系统XX不是中央用户管理的一部分"）；必须按函数组（FUGR）读取，名称去掉 SAPL 前缀。
             let objName = args.objectName;
@@ -220,6 +217,20 @@ export const textElementsTool = {
                 objName = upperName.slice(4);
                 objType = "FUGR";
             }
+            // ⛔ ADT 没有函数组（FUGR）的 textelements 端点：打过去只会得到无 body 的 400，
+            //    旧版会把整条 ADT 会话踩坏（本次故障即由此触发）。本地拦下并给可行路径。
+            //    在 getClient / 发请求之前拦截，确保真正不发出任何 SAP 请求。
+            if (String(objType).toUpperCase() === "FUGR") {
+                const fgName = matchFunctionGroupProgram(objName)?.fgName ?? String(objName).toUpperCase();
+                return (`⛔ ADT 不支持按函数组读取/写入文本元素（${objName}）。\n` +
+                    `函数组的文本池挂在各内部程序（L<FG>TOP / F01 / I01 …）上：\n` +
+                    `  · 读取/维护：SE38 输入内部程序名（如 L${fgName}I01）→ 转到 → 文本元素\n` +
+                    `  · 翻译：translate_text_pool（objectName 传内部程序名）\n` +
+                    `未发出任何 SAP 请求，连接未受影响。`);
+            }
+            const connId = await resolveConnectionId(args.connectionId);
+            const client = await getClient(connId);
+            const { textElementsUrl } = await import("abap-adt-api");
             const url = textElementsUrl(objType, objName);
             if (args.action === "read") {
                 const categories = args.category ? [args.category] : ["symbols", "selections", "headings"];

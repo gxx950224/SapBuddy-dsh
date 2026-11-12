@@ -19,6 +19,8 @@ export declare function withAllConnMutex<T>(fn: () => Promise<T>): Promise<T>;
 export declare function markConnectionUnhealthy(connId: string): void;
 /** 判断是否连接级故障（会话失效/网络断了/CSRF 令牌失效），而非业务错误 */
 export declare function isConnectionError(err: unknown): boolean;
+/** ADT 会话失效（400/408 + 会话类文本），用于清池兜底。 */
+export declare function isSessionBrokenError(err: unknown): boolean;
 /** 是否 CSRF 令牌校验失败（SDK 的 AdtCsrfException 是裸 Error，没有 status，需单独识别） */
 export declare function isCsrfError(err: unknown): boolean;
 /** 写序列前确保会话新鲜：残留 stateful 压回 stateless，会话超过 maxAgeMs 未确认可用就重新 login */

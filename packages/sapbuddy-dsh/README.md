@@ -10,13 +10,13 @@
 在 DSH 的插件管理页添加：
 
 ```text
-sapbuddy-dsh@0.1.5
+sapbuddy-dsh@0.1.6
 ```
 
 也可以通过 DSH 命令行安装：
 
 ```bash
-dsh plugin --profile desktop add sapbuddy-dsh@0.1.5
+dsh plugin --profile desktop add sapbuddy-dsh@0.1.6
 ```
 
 更新已安装插件后，完整退出并重新启动 DSH，再新建会话选择 **SapBuddy**。
@@ -52,6 +52,8 @@ dsh plugin --profile desktop add sapbuddy-dsh@0.1.5
 写操作（编辑、激活、DDIC、传输等）在进入独占写序列前会刷新会话：会话超过 5 分钟没有被确认可用就先重新登录（清空 cookie、换一份新的 CSRF 令牌）。原因是 ABAP 侧的会话空闲超时会让旧令牌失效，而 ADT 客户端 SDK 只在无状态（stateless）请求上自动重登录——有状态写请求不会，于是会出现"读源码正常、每次写都报 `CSRF 令牌验证失败`"的僵局。
 
 如果写请求仍然收到 CSRF 或会话失效错误（例如 ABAP 侧刚重启），插件会丢弃该会话、重建连接并整体重试一次。CSRF 校验失败的请求在 SAP 侧不会执行，因此重试不会造成重复写入。上述恢复对工具层透明，不需要重启 DSH，也不需要重新切换连接。
+
+0.1.6 起还会识别 SAP ICM 用 `400 Session timed out`（不是 401）表示的失效会话：非 stateful 请求会自动重新登录并重试一次；仍失败则把该客户端移出连接池。错误信息会附带 HTTP 状态与 SAP 原文。`manage_text_elements` 对函数组（FUGR）会直接返回本地说明（文本池在 `L<FG>I01` 等内部程序上），不再向 ADT 发无意义请求，以免把会话踩坏。
 
 ## 工具与技能
 

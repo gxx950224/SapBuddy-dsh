@@ -39,10 +39,28 @@ export function escapeXmlAttr(s: string): string {
     .replace(/>/g, "&gt;")
 }
 
-/** 截断并清洗 SAP/ADT 错误信息：剥离 <stack> 标签并限长，避免把服务器内部堆栈泄露给 AI/用户 */
+/** 截断并清洗 SAP/ADT 错误信息：剥离 <stack> 标签并限长，避免把服务器内部堆栈泄露给 AI/用户。
+ *  额外附上 HTTP 状态 + SAP 原始响应体摘要：以前只留 "Request failed with status code 400"，
+ *  把定位根因最关键的 SAP 原文（如 "Session timed out" / "Invalid object name"）丢掉了。 */
 export function sanitizeErrMsg(err: unknown, max = 300): string {
   const raw = err instanceof Error ? err.message : String(err ?? "")
-  const clean = raw.replace(/<stack>[\s\S]*?<\/stack>/gi, " <堆栈已省略>").trim()
+  const anyErr = err as {
+    status?: unknown
+    err?: unknown
+    statusText?: unknown
+    response?: { status?: unknown; statusText?: unknown; body?: unknown }
+    parent?: { status?: unknown; err?: unknown; response?: { status?: unknown; statusText?: unknown; body?: unknown } }
+  }
+  const resp = anyErr?.response ?? anyErr?.parent?.response
+  const status = anyErr?.status ?? anyErr?.parent?.status ?? anyErr?.err ?? (anyErr as { parent?: { err?: unknown } })?.parent?.err ?? resp?.status
+  const body = typeof resp?.body === "string"
+    ? resp.body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+    : ""
+  const head = [status ? `HTTP ${status}${resp?.statusText ? ` ${resp.statusText}` : ""}` : "", body.slice(0, 200)]
+    .filter(Boolean)
+    .join(" | ")
+  const merged = head && !raw.includes(body.slice(0, 40).trim() || "\u0000") ? `${raw} (${head})` : raw
+  const clean = merged.replace(/<stack>[\s\S]*?<\/stack>/gi, " <堆栈已省略>").trim()
   return clean.length > max ? clean.slice(0, max) + "…" : clean
 }
 

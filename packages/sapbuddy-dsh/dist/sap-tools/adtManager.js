@@ -211,11 +211,38 @@ export function isCsrfError(err) {
 function isCsrfFailureText(text) {
     return /CSRF|令牌验证/i.test(String(text).slice(0, 800));
 }
+/** ADT 会话失效在 ICM 侧返回 400（"Session timed out"），不是 401。
+ *  只有命中会话类文本才把 400/408 升格为连接级错误，避免把业务参数错误误判成断线。 */
+const SESSION_TEXT_RE = /session\s*(?:not found|timed out|invalid|expired|timeout)|invalid\s*session|sap-contextid|会话(?:已)?(?:超时|失效|过期|不存在)/i;
+function pickHttpStatus(err) {
+    const anyErr = err;
+    const resp = anyErr?.response ?? anyErr?.parent?.response;
+    for (const s of [anyErr?.status, anyErr?.parent?.status, resp?.status, anyErr?.err, anyErr?.parent?.err]) {
+        if (typeof s === "number" && s > 0)
+            return s;
+    }
+    const m = String(anyErr?.message ?? "").match(/\b(401|407|400|408)\b/);
+    return m ? Number(m[1]) : undefined;
+}
+export function isSessionBrokenError(err) {
+    if (!(err instanceof Error))
+        return false;
+    const anyErr = err;
+    const resp = anyErr.response ?? anyErr.parent?.response;
+    const status = pickHttpStatus(anyErr);
+    if (status !== 400 && status !== 408)
+        return false;
+    const text = `${anyErr.message ?? ""} ${anyErr.statusText ?? ""} ${resp?.statusText ?? ""} ${typeof resp?.body === "string" ? resp.body : ""}`;
+    return SESSION_TEXT_RE.test(text.slice(0, 2000));
+}
 /** 判断是否连接级故障（会话失效/网络断了/CSRF 令牌失效），而非业务错误 */
 export function isConnectionError(err) {
     if (!(err instanceof Error))
         return false;
     if (isCsrfError(err))
+        return true;
+    // 会话类 400 必须算连接级故障：否则坏客户端会一直留在池里，全通道永久 400
+    if (isSessionBrokenError(err))
         return true;
     const status = err.status;
     if (typeof status === "number")

@@ -195,10 +195,81 @@ function isCsrfFailureText(text: unknown): boolean {
   return /CSRF|令牌验证/i.test(String(text).slice(0, 800))
 }
 
+/** SAP 明确表示"会话已失效"的文本特征。ADT 失效会话在 ICM 侧是 400（不是 401）。 */
+const SESSION_TEXT_RE =
+  /session\s*(?:not found|timed out|invalid|expired|timeout)|invalid\s*session|sap-contextid|会话(?:已)?(?:超时|失效|过期|不存在)/i
+
+type SessionLikeError = {
+  status?: unknown
+  err?: unknown
+  statusText?: unknown
+  message?: unknown
+  response?: { status?: unknown; statusText?: unknown; body?: unknown }
+  parent?: SessionLikeError
+}
+
+function pickHttpStatus(err: SessionLikeError | undefined): number | undefined {
+  const resp = err?.response ?? err?.parent?.response
+  for (const s of [err?.status, err?.parent?.status, resp?.status, err?.err, err?.parent?.err]) {
+    if (typeof s === "number" && s > 0) return s
+  }
+  const m = String(err?.message ?? "").match(/\b(401|407|400|408)\b/)
+  return m ? Number(m[1]) : undefined
+}
+
+/** 是否属于"会话坏了"（401/407，或 400/408 且文本命中会话特征）。用于传输层自愈。 */
+export function isSessionBroken(error: unknown): boolean {
+  const anyErr = error as SessionLikeError | undefined
+  const res = anyErr?.response ?? anyErr?.parent?.response
+  const status = pickHttpStatus(anyErr)
+  if (status === 401 || status === 407) return true
+  if (status !== 400 && status !== 408) return false
+  const text = `${anyErr?.message ?? ""} ${anyErr?.statusText ?? ""} ${res?.statusText ?? ""} ${typeof res?.body === "string" ? res.body : ""}`
+  return SESSION_TEXT_RE.test(text.slice(0, 2000))
+}
+
+/** 只有命中会话类文本才把 400/408 升格为连接级错误，避免把业务参数错误误判成断线。 */
+export function isSessionBrokenError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false
+  const anyErr = err as SessionLikeError
+  const resp = anyErr.response ?? anyErr.parent?.response
+  const status = pickHttpStatus(anyErr)
+  if (status !== 400 && status !== 408) return false
+  const text = `${anyErr.message ?? ""} ${anyErr.statusText ?? ""} ${resp?.statusText ?? ""} ${typeof resp?.body === "string" ? resp.body : ""}`
+  return SESSION_TEXT_RE.test(text.slice(0, 2000))
+}
+
+/** 会话自愈：SDK 只对 401/CSRF 重登，对 400 会话超时无能为力。仅非 stateful 重试一次。 */
+async function recoverSessionRequest<T>(client: ADTClient, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run()
+  } catch (err) {
+    if (!isSessionBroken(err) || client.isStateful) throw err
+    try {
+      await client.login()
+    } catch {
+      throw err
+    }
+    return await run()
+  }
+}
+
+/** 真实工具调用走 AdtHTTP.request（client.httpClient），在创建客户端时包一层同等自愈逻辑。 */
+function attachSessionRecovery(client: ADTClient): ADTClient {
+  const http = (client as ADTClient & { httpClient?: { request: Function; __sapbuddySessionWrapped?: boolean } }).httpClient
+  if (!http || typeof http.request !== "function" || http.__sapbuddySessionWrapped) return client
+  const orig = http.request.bind(http)
+  http.request = (path: string, config?: unknown) => recoverSessionRequest(client, () => orig(path, config))
+  http.__sapbuddySessionWrapped = true
+  return client
+}
+
 /** 判断是否连接级故障（会话失效/网络断了/CSRF 令牌失效），而非业务错误 */
 export function isConnectionError(err: unknown): boolean {
   if (!(err instanceof Error)) return false
   if (isCsrfError(err)) return true
+  // 会话类 400 必须算连接级故障：否则坏客户端会一直留在池里，全通道永久 400
+  if (isSessionBrokenError(err)) return true
   const status = (err as { status?: unknown }).status
   if (typeof status === "number") return status === 401 || status === 403 || status >= 500
   return /ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|EPIPE|socket hang up|fetch failed|Failed to fetch|network error|read ECONNRESET|write EPIPE|CERT_|self-signed/.test(
@@ -465,10 +536,10 @@ function createAdtClient(conf: ConnectionConfig): ADTClient {
       const json = (await res.json()) as { access_token: string }
       return json.access_token
     }
-    return new ADTClient(conf.url, conf.username, fetchBearer, conf.client, conf.language, options)
+    return attachSessionRecovery(new ADTClient(conf.url, conf.username, fetchBearer, conf.client, conf.language, options))
   }
 
-  return new ADTClient(conf.url, conf.username, conf.password, conf.client, conf.language, options)
+  return attachSessionRecovery(new ADTClient(conf.url, conf.username, conf.password, conf.client, conf.language, options))
 }
 
 export function getConnection(id: string): ConnectionConfig {

@@ -53,7 +53,7 @@ const adt = await load('adtManager.js');
 await adt.evaluate();
 const {
     getClient, ensureFreshSession, resetClients, runWriteWithRecovery,
-    isCsrfError, isConnectionError, connectedIds, __setClientFactoryForTest,
+    isCsrfError, isConnectionError, isSessionBrokenError, connectedIds, __setClientFactoryForTest,
     __setSessionFreshAtForTest,
 } = adt.namespace;
 
@@ -302,4 +302,37 @@ test('CSRF 异常被识别为连接级故障（SDK 的 AdtCsrfException 没有 s
     assert.equal(isCsrfError(new Error('CSRF token validation failed')), true);
     assert.equal(isConnectionError(new Error('对象被其他用户锁定')), false);
     assert.equal(isCsrfError(undefined), false);
+});
+
+test('ADT 会话类 400（Session timed out）算连接级错误', () => {
+    const err = new Error('Request failed with status code 400');
+    err.status = 400;
+    err.response = { status: 400, statusText: 'Session timed out', body: '' };
+    assert.equal(isConnectionError(err), true);
+    assert.equal(isSessionBrokenError(err), true);
+});
+
+test('业务 400（参数/对象非法）不算连接级错误，不能误清池', () => {
+    const err = new Error('Request failed with status code 400');
+    err.status = 400;
+    err.response = { status: 400, statusText: 'Bad Request', body: '<exc:exception><message>Invalid object name</message></exc:exception>' };
+    assert.equal(isConnectionError(err), false);
+    assert.equal(isSessionBrokenError(err), false);
+});
+
+test('isSessionBrokenError 同时对 parent.response 形态生效（wrapSelfHeal 包出来的错误）', () => {
+    const inner = new Error('Request failed with status code 400');
+    inner.status = 400;
+    inner.response = { status: 400, statusText: 'Session timed out', body: '' };
+    const wrapped = new Error('outer');
+    wrapped.parent = inner;
+    assert.equal(isSessionBrokenError(wrapped), true);
+    assert.equal(isConnectionError(wrapped), true);
+});
+
+test('SDK AdtErrorException 形态（err=400，无 status，message 含 Session timed out）也算连接级', () => {
+    const err = new Error('Error 400:Session timed out');
+    err.err = 400;
+    assert.equal(isSessionBrokenError(err), true);
+    assert.equal(isConnectionError(err), true);
 });
