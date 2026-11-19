@@ -7,6 +7,7 @@
       "username": "YOUR_USER",
       "password": "YOUR_PASSWORD",
       "language": "ZH",
+      "sapTimeZoneOffset": "+08:00",
       "authMethod": "basic",
       "ssl": { "allowSelfSigned": true },
       "description": "开发系统",

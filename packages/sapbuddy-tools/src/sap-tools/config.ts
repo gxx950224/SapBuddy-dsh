@@ -40,6 +40,11 @@ export interface ConnectionConfig {
     customCA?: string
   }
   /**
+   * SAP 系统时区相对 UTC 的显式偏移，如 "+08:00" / "UTC+8" / "-05:30"。
+   * analyze_abap_dumps 的时间窗按此解释系统本地时间；未配置且工具未传 sapTimeZoneOffset 时拒绝猜测（不会用本机/JST 冒充）。
+   */
+  sapTimeZoneOffset?: string
+  /**
    * 安全策略
    * requireDevClient: 默认 true——仅允许在开发类客户端上写操作；设为 false 可显式放行（不推荐）
    * developmentCategories: 视为开发机的 T000.CCCATEGORY 列表，默认 ["C"]（SAP 角色：C=定制/客户开发）
